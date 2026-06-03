@@ -136,7 +136,6 @@ internal sealed class PacketTunnelRuntime
             return;
         }
 
-        LibClashNative.StartListener();
         LibClashNative.StartTun(fd, options.Stack, options.TunAddressCsv, options.TunDnsCsv);
         MemoryPressure.Trim();
         completionHandler(null);

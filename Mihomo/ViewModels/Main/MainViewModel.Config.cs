@@ -18,11 +18,11 @@ public partial class MainViewModel
     [RelayCommand(CanExecute = nameof(CanValidate))]
     private async Task SaveConfigAsync()
     {
-        await RunAsync(() =>
+        await RunAsync(async () =>
         {
             SaveConfigContent();
+            await UpsertCurrentProfileAsync(ConfigProfileType.File, ProfileLabelFromPath(ConfigPath), string.Empty);
             LastMessage = $"已保存: {ConfigPath}";
-            return Task.CompletedTask;
         });
     }
 
@@ -40,12 +40,12 @@ public partial class MainViewModel
     [RelayCommand(CanExecute = nameof(CanValidate))]
     private async Task ResetConfigAsync()
     {
-        await RunAsync(() =>
+        await RunAsync(async () =>
         {
             ConfigContent = DefaultConfigText(CurrentMixedPort());
             SaveConfigContent();
+            await UpsertCurrentProfileAsync(ConfigProfileType.File, ProfileLabelFromPath(ConfigPath), string.Empty);
             LastMessage = $"已重置: {ConfigPath}";
-            return Task.CompletedTask;
         });
     }
 
@@ -55,20 +55,26 @@ public partial class MainViewModel
         await RunAsync(async () =>
         {
             var url = SubscriptionUrl.Trim();
-            if (string.IsNullOrWhiteSpace(url))
-            {
-                throw new InvalidOperationException("订阅地址为空");
-            }
-
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.UserAgent.ParseAdd("clash");
-            using var response = await _httpClient.SendAsync(request);
-            response.EnsureSuccessStatusCode();
-
-            ConfigContent = await response.Content.ReadAsStringAsync();
-            SaveConfigContent();
-            LastMessage = "订阅已导入并保存";
+            await ImportSubscriptionCoreAsync(url, ProfileLabelFromUrl(url));
         });
+    }
+
+    private async Task ImportSubscriptionCoreAsync(string url, string label)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            throw new InvalidOperationException("订阅地址为空");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.UserAgent.ParseAdd("clash");
+        using var response = await _httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        ConfigContent = await response.Content.ReadAsStringAsync();
+        SaveConfigContent();
+        await UpsertCurrentProfileAsync(ConfigProfileType.Url, label, url);
+        LastMessage = "订阅已导入并保存";
     }
 
     private int CurrentMixedPort()

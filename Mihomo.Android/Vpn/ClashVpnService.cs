@@ -27,6 +27,7 @@ public sealed class ClashVpnService : VpnService, IAndroidTunCallbacks
 
     private ParcelFileDescriptor? tunDescriptor;
     private ConnectivityManager? connectivityManager;
+    private CancellationTokenSource? tunStartCancellation;
 
     internal static void Start(Context context, ClashVpnOptions options)
     {
@@ -117,7 +118,7 @@ public sealed class ClashVpnService : VpnService, IAndroidTunCallbacks
     private void StartVpn(ClashVpnOptions options)
     {
         StopActiveTun();
-        StartVpnForeground("Mihomo core is running");
+        StartVpnForeground("Mihomo VPN is connecting");
         LibClashNative.SetAndroidCallbacks(this);
 
         var builder = new VpnBuilder(this)
@@ -141,8 +142,31 @@ public sealed class ClashVpnService : VpnService, IAndroidTunCallbacks
 
         tunDescriptor = builder.Establish() ?? throw new InvalidOperationException("Android rejected VPN establishment");
         var fd = tunDescriptor.DetachFd();
+        tunDescriptor = null;
 
-        LibClashNative.StartTun(fd, options.Stack, TunAddressCsv(options), TunDnsCsv(options));
+        tunStartCancellation = new CancellationTokenSource();
+        var cancellationToken = tunStartCancellation.Token;
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                LibClashNative.StartTun(fd, options.Stack, TunAddressCsv(options), TunDnsCsv(options));
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    StartVpnForeground("Mihomo core is running");
+                }
+            }
+            catch (System.OperationCanceledException)
+            {
+                LibClashNative.StopTun();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(nameof(ClashVpnService), ex.ToString());
+                StopVpn();
+            }
+        }, cancellationToken);
     }
 
     private void StopVpn()
@@ -154,6 +178,10 @@ public sealed class ClashVpnService : VpnService, IAndroidTunCallbacks
 
     private void StopActiveTun()
     {
+        tunStartCancellation?.Cancel();
+        tunStartCancellation?.Dispose();
+        tunStartCancellation = null;
+
         try
         {
             LibClashNative.StopTun();

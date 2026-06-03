@@ -19,8 +19,6 @@ internal sealed class IosClashRuntime : IClashRuntime
 
     public string DefaultConfigPath { get; }
 
-    public string ApiBaseAddress => "http://" + ExternalControllerListenAt;
-
     private IosClashRuntime()
     {
         DefaultHomeDirectory = DefaultHomeDirectoryPath();
@@ -103,6 +101,45 @@ internal sealed class IosClashRuntime : IClashRuntime
         }
 
         Publish(ClashStatus.Stopped);
+    }
+
+    public Task<IReadOnlyList<ClashProxyGroup>> GetProxyGroupsAsync(
+        string sortMode,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<IReadOnlyList<ClashProxyGroup>>([]);
+    }
+
+    public Task<ClashTraffic?> GetTrafficAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<ClashTraffic?>(null);
+    }
+
+    public Task<int?> GetConnectionCountAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<int?>(null);
+    }
+
+    public Task<bool> SelectProxyAsync(
+        string groupName,
+        string proxyName,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(false);
+    }
+
+    public Task<int?> TestProxyDelayAsync(
+        string proxyName,
+        string testUrl,
+        int timeoutMilliseconds = 5000,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<int?>(null);
+    }
+
+    public Task HealthCheckAsync(string groupName, CancellationToken cancellationToken = default)
+    {
+        return Task.CompletedTask;
     }
 
     private static async Task<NETunnelProviderManager> LoadOrCreateManagerAsync()

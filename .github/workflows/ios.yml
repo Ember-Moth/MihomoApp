@@ -83,12 +83,15 @@ jobs:
           mkdir -p Mihomo.iOS.PacketTunnel/NativeLibraries
           tar -xzf artifacts/libclash-ios/libclash-ios.tar.gz -C Mihomo.iOS.PacketTunnel/NativeLibraries
 
-      - name: Restore
+      - name: Restore simulator
         run: dotnet restore Mihomo.iOS/Mihomo.iOS.csproj -r iossimulator-arm64
 
-      - name: Publish iOS simulator app
+      - name: Restore device
+        run: dotnet restore Mihomo.iOS/Mihomo.iOS.csproj -r ios-arm64
+
+      - name: Build iOS simulator app
         run: |
-          dotnet publish Mihomo.iOS/Mihomo.iOS.csproj \
+          dotnet build Mihomo.iOS/Mihomo.iOS.csproj \
             -c Release \
             -f net10.0-ios \
             -r iossimulator-arm64 \
@@ -96,11 +99,23 @@ jobs:
             -p:UseSharedCompilation=false \
             -nr:false
 
-      - name: Upload iOS simulator app
+      - name: Publish iOS device app
+        run: |
+          dotnet publish Mihomo.iOS/Mihomo.iOS.csproj \
+            -c Release \
+            -f net10.0-ios \
+            -r ios-arm64 \
+            -p:LibClashIosNativeArchive="$PWD/Mihomo.iOS.PacketTunnel/NativeLibraries/ios/iphoneos-arm64/libclash.a" \
+            -p:UseSharedCompilation=false \
+            -nr:false
+
+      - name: Upload iOS build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mihomo-ios-simulator
+          name: mihomo-ios
           path: |
+            Mihomo.iOS/bin/Release/net10.0-ios/ios-arm64/publish/**/*.app
+            Mihomo.iOS/bin/Release/net10.0-ios/ios-arm64/**/*.ipa
             Mihomo.iOS/bin/Release/net10.0-ios/iossimulator-arm64/publish/**/*.app
             Mihomo.iOS/bin/Release/net10.0-ios/iossimulator-arm64/**/*.app
           if-no-files-found: warn

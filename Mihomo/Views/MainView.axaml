@@ -13,74 +13,189 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto,*,Auto"
-          Background="{StaticResource Brush.PageBackground}">
-        <Border Grid.Row="0"
-                Padding="18,16,18,12"
-                Background="{StaticResource Brush.ShellBackground}">
-            <Grid ColumnDefinitions="*,Auto"
-                  ColumnSpacing="12">
-                <StackPanel Spacing="3">
-                    <TextBlock Text="Mihomo"
-                               Foreground="{StaticResource Brush.TextPrimary}"
-                               FontSize="25"
-                               FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding LastMessage}"
-                               Foreground="{StaticResource Brush.TextSecondary}"
-                               FontSize="12"
-                               MaxLines="2"
-                               TextWrapping="Wrap" />
-                </StackPanel>
-
-                <Border Grid.Column="1"
-                        MinWidth="86"
-                        Height="34"
-                        Padding="12,0"
-                        VerticalAlignment="Top"
-                        CornerRadius="17"
-                        Background="{StaticResource Brush.AccentSurface}">
-                    <TextBlock Text="{Binding StateText}"
-                               HorizontalAlignment="Center"
+    <Grid Background="{DynamicResource Brush.PageBackground}">
+        <Grid RowDefinitions="56,*,80">
+            <Border Grid.Row="0"
+                    Padding="16,0,8,0"
+                    Background="{DynamicResource Brush.PageBackground}">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="8">
+                    <TextBlock Text="{Binding PageTitle}"
                                VerticalAlignment="Center"
-                               Foreground="{StaticResource Brush.Accent}"
-                               FontSize="12"
+                               Foreground="{DynamicResource Brush.TextPrimary}"
+                               FontSize="22"
                                FontWeight="SemiBold" />
-                </Border>
-            </Grid>
-        </Border>
 
-        <Grid Grid.Row="1">
-            <pages:OverviewPageView IsVisible="{Binding IsOverviewPage}" />
-            <pages:ProfilesPageView IsVisible="{Binding IsProfilesPage}" />
-            <pages:ProxiesPageView IsVisible="{Binding IsProxiesPage}" />
-            <pages:ConfigPageView IsVisible="{Binding IsConfigPage}" />
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                Spacing="4"
+                                VerticalAlignment="Center">
+                        <Button Classes="tonal"
+                                IsVisible="{Binding IsOverviewPage}"
+                                MinHeight="36"
+                                Padding="12,6"
+                                Content="{Binding StateText}"
+                                Command="{Binding RunningActionCommand}" />
+                        <Button Classes="iconButton"
+                                IsVisible="{Binding IsOverviewPage}"
+                                Content="✎" />
+
+                        <Button Classes="iconButton"
+                                IsVisible="{Binding IsProxiesPage}"
+                                Content="⌕" />
+                        <Button Classes="iconButton"
+                                IsVisible="{Binding IsProxiesPage}"
+                                Content="◎" />
+                        <Button Classes="iconButton"
+                                IsVisible="{Binding IsProxiesPage}"
+                                Content="⋮" />
+
+                        <Button Classes="iconButton"
+                                IsVisible="{Binding IsConfigPage}"
+                                Content="✓"
+                                Command="{Binding ValidateConfigCommand}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1">
+                <pages:OverviewPageView IsVisible="{Binding IsOverviewPage}" />
+                <pages:ProxiesPageView IsVisible="{Binding IsProxiesPage}" />
+                <pages:ConfigPageView IsVisible="{Binding IsConfigPage}" />
+                <pages:ToolsPageView IsVisible="{Binding IsToolsPage}" />
+            </Grid>
+
+            <Border Grid.Row="2"
+                    Background="{DynamicResource Brush.ShellBackground}">
+                <Grid ColumnDefinitions="*,*,*,*">
+                    <Button Grid.Column="0"
+                            Classes="nav"
+                            Classes.active="{Binding IsOverviewPage}"
+                            Command="{Binding ShowOverviewCommand}">
+                        <StackPanel Spacing="4"
+                                    HorizontalAlignment="Center">
+                            <Grid Width="46"
+                                  Height="30">
+                                <Border Classes="navIndicator"
+                                        IsVisible="{Binding IsOverviewPage}" />
+                                <TextBlock Text="⌂"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold" />
+                            </Grid>
+                            <TextBlock Text="仪表盘"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                       FontSize="11" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Grid.Column="1"
+                            Classes="nav"
+                            Classes.active="{Binding IsProxiesPage}"
+                            Command="{Binding ShowProxiesCommand}">
+                        <StackPanel Spacing="4"
+                                    HorizontalAlignment="Center">
+                            <Grid Width="46"
+                                  Height="30">
+                                <Border Classes="navIndicator"
+                                        IsVisible="{Binding IsProxiesPage}" />
+                                <TextBlock Text="⇆"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold" />
+                            </Grid>
+                            <TextBlock Text="代理"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                       FontSize="11" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Grid.Column="2"
+                            Classes="nav"
+                            Classes.active="{Binding IsConfigPage}"
+                            Command="{Binding ShowConfigCommand}">
+                        <StackPanel Spacing="4"
+                                    HorizontalAlignment="Center">
+                            <Grid Width="46"
+                                  Height="30">
+                                <Border Classes="navIndicator"
+                                        IsVisible="{Binding IsConfigPage}" />
+                                <TextBlock Text="⚙"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold" />
+                            </Grid>
+                            <TextBlock Text="配置"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                       FontSize="11" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Grid.Column="3"
+                            Classes="nav"
+                            Classes.active="{Binding IsToolsPage}"
+                            Command="{Binding ShowToolsCommand}">
+                        <StackPanel Spacing="4"
+                                    HorizontalAlignment="Center">
+                            <Grid Width="46"
+                                  Height="30">
+                                <Border Classes="navIndicator"
+                                        IsVisible="{Binding IsToolsPage}" />
+                                <TextBlock Text="⚒"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold" />
+                            </Grid>
+                            <TextBlock Text="工具"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                       FontSize="11" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
         </Grid>
 
-        <Border Grid.Row="2"
-                Padding="8,6"
-                Background="{StaticResource Brush.ShellBackground}">
-            <Grid ColumnDefinitions="*,*,*,*">
-                <Button Classes="nav"
-                        Classes.active="{Binding IsOverviewPage}"
-                        Grid.Column="0"
-                        Content="概览"
-                        Command="{Binding ShowOverviewCommand}" />
-                <Button Classes="nav"
-                        Classes.active="{Binding IsProfilesPage}"
-                        Grid.Column="1"
-                        Content="订阅"
-                        Command="{Binding ShowProfilesCommand}" />
-                <Button Classes="nav"
-                        Classes.active="{Binding IsProxiesPage}"
-                        Grid.Column="2"
-                        Content="代理"
-                        Command="{Binding ShowProxiesCommand}" />
-                <Button Classes="nav"
-                        Classes.active="{Binding IsConfigPage}"
-                        Grid.Column="3"
-                        Content="配置"
-                        Command="{Binding ShowConfigCommand}" />
-            </Grid>
-        </Border>
+        <Button Classes="startFab"
+                Classes.running="{Binding IsRunning}"
+                IsVisible="{Binding IsOverviewPage}"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,16,92"
+                Command="{Binding RunningActionCommand}">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="10"
+                        VerticalAlignment="Center">
+                <TextBlock Text="{Binding RunningActionText}"
+                           VerticalAlignment="Center"
+                           FontSize="16"
+                           FontWeight="Black" />
+                <TextBlock Text="{Binding RunningDuration}"
+                           IsVisible="{Binding IsRunning}"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource Brush.TextPrimary}"
+                           FontSize="13"
+                           FontWeight="SemiBold" />
+            </StackPanel>
+        </Button>
+
+        <Button Classes="startFab"
+                IsVisible="{Binding IsProxiesPage}"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,16,92"
+                Content="延迟测试"
+                Command="{Binding TestSelectedGroupDelayCommand}" />
     </Grid>
 </UserControl>

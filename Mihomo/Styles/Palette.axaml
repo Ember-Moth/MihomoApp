@@ -1,24 +1,62 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <SolidColorBrush x:Key="Brush.PageBackground" Color="#111316" />
-    <SolidColorBrush x:Key="Brush.ShellBackground" Color="#181B20" />
-    <SolidColorBrush x:Key="Brush.Surface" Color="#202329" />
-    <SolidColorBrush x:Key="Brush.SurfaceAlt" Color="#272B32" />
-    <SolidColorBrush x:Key="Brush.SurfaceRaised" Color="#2D323A" />
-    <SolidColorBrush x:Key="Brush.Border" Color="#3A404A" />
-    <SolidColorBrush x:Key="Brush.BorderMuted" Color="#2F343D" />
-    <SolidColorBrush x:Key="Brush.TextPrimary" Color="#F4F6F8" />
-    <SolidColorBrush x:Key="Brush.TextSecondary" Color="#ADB5BF" />
-    <SolidColorBrush x:Key="Brush.TextMuted" Color="#7D8792" />
-    <SolidColorBrush x:Key="Brush.Accent" Color="#39B990" />
-    <SolidColorBrush x:Key="Brush.AccentForeground" Color="#061B16" />
-    <SolidColorBrush x:Key="Brush.AccentPressed" Color="#2EA47F" />
-    <SolidColorBrush x:Key="Brush.AccentSurface" Color="#123D34" />
-    <SolidColorBrush x:Key="Brush.Warning" Color="#E6B450" />
-    <SolidColorBrush x:Key="Brush.WarningSurface" Color="#392D18" />
-    <SolidColorBrush x:Key="Brush.Info" Color="#7CA7FF" />
-    <SolidColorBrush x:Key="Brush.InfoSurface" Color="#1D2843" />
-    <SolidColorBrush x:Key="Brush.Success" Color="#A6D76A" />
-    <SolidColorBrush x:Key="Brush.SuccessSurface" Color="#243318" />
-    <SolidColorBrush x:Key="Brush.InputBackground" Color="#171A1F" />
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="Brush.PageBackground" Color="#141218" />
+            <SolidColorBrush x:Key="Brush.ShellBackground" Color="#211F26" />
+            <SolidColorBrush x:Key="Brush.Surface" Color="#1D1B20" />
+            <SolidColorBrush x:Key="Brush.SurfaceAlt" Color="#2B2930" />
+            <SolidColorBrush x:Key="Brush.SurfaceRaised" Color="#36343B" />
+            <SolidColorBrush x:Key="Brush.SurfaceSoft" Color="#211F26" />
+            <SolidColorBrush x:Key="Brush.Border" Color="#938F99" />
+            <SolidColorBrush x:Key="Brush.BorderMuted" Color="#49454F" />
+            <SolidColorBrush x:Key="Brush.TextPrimary" Color="#E7E0E4" />
+            <SolidColorBrush x:Key="Brush.TextSecondary" Color="#CAC4D0" />
+            <SolidColorBrush x:Key="Brush.TextMuted" Color="#938F99" />
+            <SolidColorBrush x:Key="Brush.Accent" Color="#EABEC2" />
+            <SolidColorBrush x:Key="Brush.AccentForeground" Color="#44292D" />
+            <SolidColorBrush x:Key="Brush.AccentPressed" Color="#D8C0C3" />
+            <SolidColorBrush x:Key="Brush.AccentSurface" Color="#5D3F43" />
+            <SolidColorBrush x:Key="Brush.Warning" Color="#F3B782" />
+            <SolidColorBrush x:Key="Brush.WarningSurface" Color="#573515" />
+            <SolidColorBrush x:Key="Brush.Info" Color="#C7C0FF" />
+            <SolidColorBrush x:Key="Brush.InfoSurface" Color="#463F78" />
+            <SolidColorBrush x:Key="Brush.Success" Color="#BFD9B3" />
+            <SolidColorBrush x:Key="Brush.SuccessSurface" Color="#354B31" />
+            <SolidColorBrush x:Key="Brush.Danger" Color="#F2B8B5" />
+            <SolidColorBrush x:Key="Brush.DangerSurface" Color="#601410" />
+            <SolidColorBrush x:Key="Brush.Tertiary" Color="#E7B9D4" />
+            <SolidColorBrush x:Key="Brush.TertiarySurface" Color="#5D3F53" />
+            <SolidColorBrush x:Key="Brush.InputBackground" Color="#1D1B20" />
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="Brush.PageBackground" Color="#FFFBFF" />
+            <SolidColorBrush x:Key="Brush.ShellBackground" Color="#F3EDF7" />
+            <SolidColorBrush x:Key="Brush.Surface" Color="#FFFBFF" />
+            <SolidColorBrush x:Key="Brush.SurfaceAlt" Color="#F7F2FA" />
+            <SolidColorBrush x:Key="Brush.SurfaceRaised" Color="#EDE6EE" />
+            <SolidColorBrush x:Key="Brush.SurfaceSoft" Color="#F3EDF7" />
+            <SolidColorBrush x:Key="Brush.Border" Color="#79747E" />
+            <SolidColorBrush x:Key="Brush.BorderMuted" Color="#CAC4D0" />
+            <SolidColorBrush x:Key="Brush.TextPrimary" Color="#1D1B20" />
+            <SolidColorBrush x:Key="Brush.TextSecondary" Color="#49454F" />
+            <SolidColorBrush x:Key="Brush.TextMuted" Color="#79747E" />
+            <SolidColorBrush x:Key="Brush.Accent" Color="#76575B" />
+            <SolidColorBrush x:Key="Brush.AccentForeground" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="Brush.AccentPressed" Color="#8F7074" />
+            <SolidColorBrush x:Key="Brush.AccentSurface" Color="#FFD9DD" />
+            <SolidColorBrush x:Key="Brush.Warning" Color="#7F4E14" />
+            <SolidColorBrush x:Key="Brush.WarningSurface" Color="#FFDCC2" />
+            <SolidColorBrush x:Key="Brush.Info" Color="#5B5691" />
+            <SolidColorBrush x:Key="Brush.InfoSurface" Color="#E5DEFF" />
+            <SolidColorBrush x:Key="Brush.Success" Color="#4E6447" />
+            <SolidColorBrush x:Key="Brush.SuccessSurface" Color="#D8EBD0" />
+            <SolidColorBrush x:Key="Brush.Danger" Color="#BA1A1A" />
+            <SolidColorBrush x:Key="Brush.DangerSurface" Color="#FFDAD6" />
+            <SolidColorBrush x:Key="Brush.Tertiary" Color="#76536A" />
+            <SolidColorBrush x:Key="Brush.TertiarySurface" Color="#FFD8EA" />
+            <SolidColorBrush x:Key="Brush.InputBackground" Color="#FFFBFF" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

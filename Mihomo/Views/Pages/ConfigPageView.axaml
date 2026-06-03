@@ -9,91 +9,69 @@
              x:Class="Mihomo.Views.Pages.ConfigPageView"
              x:DataType="vm:MainViewModel">
     <ScrollViewer>
-        <StackPanel Margin="16"
+        <StackPanel Margin="16,14,16,96"
                     Spacing="14">
             <Border Classes="card">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="运行参数"
-                               Foreground="{StaticResource Brush.TextPrimary}"
-                               FontSize="18"
-                               FontWeight="SemiBold" />
-
-                    <StackPanel Spacing="5">
-                        <TextBlock Text="Home 目录"
-                                   Foreground="{StaticResource Brush.TextSecondary}"
+                <StackPanel Spacing="12">
+                    <StackPanel Spacing="3">
+                        <TextBlock Text="远程订阅"
+                                   Foreground="{DynamicResource Brush.TextPrimary}"
+                                   FontSize="18"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="使用 clash UA 拉取并写入当前 config.yaml"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
                                    FontSize="12" />
-                        <TextBox Text="{Binding HomeDirectory}" />
                     </StackPanel>
 
-                    <StackPanel Spacing="5">
-                        <TextBlock Text="配置文件"
-                                   Foreground="{StaticResource Brush.TextSecondary}"
-                                   FontSize="12" />
-                        <TextBox Text="{Binding ConfigPath}" />
-                    </StackPanel>
+                    <Border Classes="settingRow">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="订阅地址"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                       FontSize="12" />
+                            <TextBox Text="{Binding SubscriptionUrl}"
+                                     PlaceholderText="https://example.com/sub.yaml" />
+                        </StackPanel>
+                    </Border>
 
                     <Grid ColumnDefinitions="*,*"
                           ColumnSpacing="10">
-                        <StackPanel Spacing="5">
-                            <TextBlock Text="Mixed Port"
-                                       Foreground="{StaticResource Brush.TextSecondary}"
-                                       FontSize="12" />
-                            <TextBox Text="{Binding MixedPort}" />
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="1"
-                                    Spacing="5">
-                            <TextBlock Text="TUN Stack"
-                                       Foreground="{StaticResource Brush.TextSecondary}"
-                                       FontSize="12" />
-                            <ComboBox ItemsSource="{Binding StackOptions}"
-                                      SelectedItem="{Binding Stack}"
-                                      HorizontalAlignment="Stretch" />
-                        </StackPanel>
-                    </Grid>
-
-                    <StackPanel Spacing="5">
-                        <TextBlock Text="路由 CIDR"
-                                   Foreground="{StaticResource Brush.TextSecondary}"
-                                   FontSize="12" />
-                        <TextBox Text="{Binding RouteAddressCsv}"
-                                 PlaceholderText="0.0.0.0/0,::/0" />
-                    </StackPanel>
-
-                    <Grid ColumnDefinitions="*,*"
-                          RowDefinitions="Auto,Auto"
-                          ColumnSpacing="10"
-                          RowSpacing="6">
-                        <CheckBox Content="TUN"
-                                  IsChecked="{Binding EnableTun}" />
-                        <CheckBox Grid.Column="1"
-                                  Content="IPv6"
-                                  IsChecked="{Binding EnableIpv6}" />
-                        <CheckBox Grid.Row="1"
-                                  Content="DNS Hijack"
-                                  IsChecked="{Binding DnsHijacking}" />
-                        <CheckBox Grid.Row="1"
-                                  Grid.Column="1"
-                                  Content="System Proxy"
-                                  IsChecked="{Binding SystemProxy}" />
+                        <Button Classes="primary"
+                                Content="导入订阅"
+                                Command="{Binding ImportSubscriptionCommand}" />
+                        <Button Grid.Column="1"
+                                Content="校验配置"
+                                Command="{Binding ValidateConfigCommand}" />
                     </Grid>
                 </StackPanel>
             </Border>
 
             <Border Classes="card">
-                <Grid RowDefinitions="Auto,Auto,*"
-                      RowSpacing="10">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Text="config.yaml"
-                                   Foreground="{StaticResource Brush.TextPrimary}"
+                <Grid RowDefinitions="Auto,Auto,Auto"
+                      RowSpacing="12">
+                    <StackPanel Spacing="3">
+                        <TextBlock Text="本地配置"
+                                   Foreground="{DynamicResource Brush.TextPrimary}"
                                    FontSize="18"
                                    FontWeight="SemiBold" />
-                        <Button Grid.Column="1"
-                                Content="校验"
-                                Command="{Binding ValidateConfigCommand}" />
-                    </Grid>
+                        <TextBlock Text="{Binding LastMessage}"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                   FontSize="12"
+                                   MaxLines="2"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
 
-                    <Grid Grid.Row="1"
+                    <Border Grid.Row="1"
+                            Classes="settingRow">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="config.yaml"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                       FontSize="12" />
+                            <TextBox Text="{Binding ConfigPath}"
+                                     PlaceholderText="/data/user/0/.../files/config.yaml" />
+                        </StackPanel>
+                    </Border>
+
+                    <Grid Grid.Row="2"
                           ColumnDefinitions="*,*,*"
                           ColumnSpacing="8">
                         <Button Content="保存"
@@ -102,19 +80,46 @@
                                 Content="重载"
                                 Command="{Binding ReloadConfigCommand}" />
                         <Button Grid.Column="2"
+                                Classes="danger"
                                 Content="重置"
                                 Command="{Binding ResetConfigCommand}" />
                     </Grid>
-
-                    <TextBox Grid.Row="2"
-                             Text="{Binding ConfigContent}"
-                             AcceptsReturn="True"
-                             TextWrapping="NoWrap"
-                             MinHeight="380"
-                             FontFamily="Consolas, Menlo, monospace"
-                             FontSize="12"
-                             PlaceholderText="粘贴 mihomo 配置" />
                 </Grid>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="运行目录"
+                               Foreground="{DynamicResource Brush.TextPrimary}"
+                               FontSize="18"
+                               FontWeight="SemiBold" />
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="12">
+                            <Border Width="38"
+                                    Height="38"
+                                    CornerRadius="19"
+                                    Background="{DynamicResource Brush.InfoSurface}">
+                                <TextBlock Text="H"
+                                           Foreground="{DynamicResource Brush.Info}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontWeight="Black" />
+                            </Border>
+                            <StackPanel Grid.Column="1"
+                                        Spacing="3">
+                                <TextBlock Text="Home"
+                                           Foreground="{DynamicResource Brush.TextSecondary}"
+                                           FontSize="12" />
+                                <TextBlock Text="{Binding HomeDirectory}"
+                                           Foreground="{DynamicResource Brush.TextPrimary}"
+                                           FontSize="13"
+                                           MaxLines="2"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
             </Border>
         </StackPanel>
     </ScrollViewer>

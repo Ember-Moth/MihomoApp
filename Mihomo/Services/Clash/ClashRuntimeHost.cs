@@ -17,8 +17,6 @@ internal sealed class UnsupportedClashRuntime : IClashRuntime
 
     public string DefaultConfigPath => string.Empty;
 
-    public string ApiBaseAddress => string.Empty;
-
     public Task InitializeAsync(ClashProfile profile, CancellationToken cancellationToken = default)
     {
         Publish(Status);
@@ -39,6 +37,45 @@ internal sealed class UnsupportedClashRuntime : IClashRuntime
     public Task StopAsync(CancellationToken cancellationToken = default)
     {
         Publish(Status);
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<ClashProxyGroup>> GetProxyGroupsAsync(
+        string sortMode,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<IReadOnlyList<ClashProxyGroup>>([]);
+    }
+
+    public Task<ClashTraffic?> GetTrafficAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<ClashTraffic?>(null);
+    }
+
+    public Task<int?> GetConnectionCountAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<int?>(null);
+    }
+
+    public Task<bool> SelectProxyAsync(
+        string groupName,
+        string proxyName,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(false);
+    }
+
+    public Task<int?> TestProxyDelayAsync(
+        string proxyName,
+        string testUrl,
+        int timeoutMilliseconds = 5000,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<int?>(null);
+    }
+
+    public Task HealthCheckAsync(string groupName, CancellationToken cancellationToken = default)
+    {
         return Task.CompletedTask;
     }
 

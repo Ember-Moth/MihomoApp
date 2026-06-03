@@ -3,6 +3,8 @@ using System.Text.Json.Serialization;
 namespace Mihomo.Android.Services;
 
 [JsonSerializable(typeof(LibClashSetupRequest))]
+[JsonSerializable(typeof(List<string>))]
+[JsonSerializable(typeof(NativeProxyGroup))]
 internal sealed partial class LibClashSetupJsonContext : JsonSerializerContext;
 
 internal sealed class LibClashSetupRequest
@@ -35,4 +37,34 @@ internal sealed class LibClashSetupRequest
 
     [JsonPropertyName("test-url")]
     public string TestUrl { get; }
+}
+
+internal sealed class NativeProxyGroup
+{
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("now")]
+    public string? Now { get; set; }
+
+    [JsonPropertyName("proxies")]
+    public List<NativeProxy>? Proxies { get; set; }
+}
+
+internal sealed class NativeProxy
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("subtitle")]
+    public string? Subtitle { get; set; }
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("delay")]
+    public int Delay { get; set; }
 }

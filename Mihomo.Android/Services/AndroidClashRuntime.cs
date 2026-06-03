@@ -24,8 +24,6 @@ internal sealed class AndroidClashRuntime : IClashRuntime
 
     public string DefaultConfigPath { get; }
 
-    public string ApiBaseAddress => "http://" + ExternalControllerListenAt;
-
     private AndroidClashRuntime(Activity activity)
     {
         this.activity = activity;
@@ -38,29 +36,243 @@ internal sealed class AndroidClashRuntime : IClashRuntime
         ClashRuntimeHost.Current = new AndroidClashRuntime(activity);
     }
 
-    public Task InitializeAsync(ClashProfile profile, CancellationToken cancellationToken = default)
+    public async Task InitializeAsync(ClashProfile profile, CancellationToken cancellationToken = default)
     {
-        Directory.CreateDirectory(profile.HomeDirectory);
-        EnsureConfigFile(profile);
-        LibClashNative.Init(profile.HomeDirectory, (int)Build.VERSION.SdkInt);
-        return Task.CompletedTask;
+        await Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Directory.CreateDirectory(profile.HomeDirectory);
+            EnsureConfigFile(profile);
+            LibClashNative.Init(profile.HomeDirectory, (int)Build.VERSION.SdkInt);
+        }, cancellationToken);
     }
 
-    public Task<string> ValidateConfigAsync(string configPath, CancellationToken cancellationToken = default)
+    public async Task<string> ValidateConfigAsync(string configPath, CancellationToken cancellationToken = default)
     {
         if (!File.Exists(configPath))
         {
-            return Task.FromResult($"Config file not found: {configPath}");
+            return $"Config file not found: {configPath}";
         }
 
-        return Task.FromResult(LibClashNative.ValidateConfig(configPath));
+        return await Task.Run(() => LibClashNative.ValidateConfig(configPath), cancellationToken);
     }
 
-    public Task StartAsync(ClashProfile profile, CancellationToken cancellationToken = default)
+    public async Task StartAsync(ClashProfile profile, CancellationToken cancellationToken = default)
     {
         Publish(new ClashStatus(ClashRunState.Starting, "Starting core"));
-        EnsureConfigFile(profile);
 
+        try
+        {
+            if (profile.EnableTun)
+            {
+                var permissionIntent = VpnService.Prepare(activity);
+                if (permissionIntent != null)
+                {
+                    activity.StartActivityForResult(permissionIntent, 1000);
+                    Publish(new ClashStatus(ClashRunState.Stopped, "VPN permission requested. Start again after approval."));
+                    return;
+                }
+            }
+
+            var setupMessage = await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                EnsureConfigFile(profile);
+                return SetupCore(profile);
+            }, cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(setupMessage))
+            {
+                Publish(new ClashStatus(ClashRunState.Error, setupMessage));
+                return;
+            }
+
+            if (profile.EnableTun)
+            {
+                ClashVpnService.Start(activity, ClashVpnOptions.FromProfile(profile));
+            }
+
+            Publish(new ClashStatus(ClashRunState.Running, "Running", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        }
+        catch (System.OperationCanceledException)
+        {
+            Publish(ClashStatus.Stopped);
+        }
+        catch (Exception ex)
+        {
+            Publish(new ClashStatus(ClashRunState.Error, ex.Message));
+        }
+    }
+
+    public async Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        Publish(new ClashStatus(ClashRunState.Stopping, "Stopping"));
+
+        TryStopVpn();
+        await Task.Run(() =>
+        {
+            TryStopListener();
+            TryResetCore();
+        }, cancellationToken);
+        Publish(ClashStatus.Stopped);
+    }
+
+    public async Task<IReadOnlyList<ClashProxyGroup>> GetProxyGroupsAsync(
+        string sortMode,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var namesJson = LibClashNative.QueryGroupNames(false);
+                var names = JsonSerializer.Deserialize(
+                    namesJson,
+                    LibClashSetupJsonContext.Default.ListString) ?? [];
+                var groups = new List<ClashProxyGroup>(names.Count);
+                var nativeSortMode = ToNativeSortMode(sortMode);
+
+                foreach (var name in names)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var groupJson = LibClashNative.QueryGroup(name, nativeSortMode);
+                    if (string.IsNullOrWhiteSpace(groupJson))
+                    {
+                        continue;
+                    }
+
+                    var group = JsonSerializer.Deserialize(
+                        groupJson,
+                        LibClashSetupJsonContext.Default.NativeProxyGroup);
+                    if (group?.Proxies is not { Count: > 0 } proxies)
+                    {
+                        continue;
+                    }
+
+                    var nodes = proxies
+                        .Where(proxy => !string.IsNullOrWhiteSpace(proxy.Name))
+                        .Select(proxy => new ClashProxy(
+                            proxy.Name ?? string.Empty,
+                            proxy.Type ?? proxy.Subtitle ?? string.Empty,
+                            string.Empty,
+                            proxy.Delay > 0 && proxy.Delay < ushort.MaxValue ? proxy.Delay : null))
+                        .ToArray();
+
+                    groups.Add(new ClashProxyGroup(
+                        name,
+                        group.Type ?? string.Empty,
+                        group.Now ?? string.Empty,
+                        string.Empty,
+                        nodes));
+                }
+
+                return (IReadOnlyList<ClashProxyGroup>)groups;
+            }, cancellationToken);
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    public async Task<ClashTraffic?> GetTrafficAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var now = UnpackTraffic(LibClashNative.QueryTrafficNow());
+                var total = UnpackTraffic(LibClashNative.QueryTrafficTotal());
+                return new ClashTraffic(now.Upload, now.Download, total.Upload, total.Download);
+            }, cancellationToken);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<int?> GetConnectionCountAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return (int?)LibClashNative.QueryConnectionCount();
+            }, cancellationToken);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<bool> SelectProxyAsync(
+        string groupName,
+        string proxyName,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return LibClashNative.PatchSelector(groupName, proxyName);
+            }, cancellationToken);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<int?> TestProxyDelayAsync(
+        string proxyName,
+        string testUrl,
+        int timeoutMilliseconds = 5000,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return LibClashNative.TestProxyDelay(proxyName, testUrl, timeoutMilliseconds);
+            }, cancellationToken);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task HealthCheckAsync(string groupName, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (string.IsNullOrWhiteSpace(groupName))
+                {
+                    LibClashNative.HealthCheckAll();
+                    return;
+                }
+
+                LibClashNative.HealthCheck(groupName);
+            }, cancellationToken);
+        }
+        catch
+        {
+            // Health checks are best-effort UI refresh hints.
+        }
+    }
+
+    private static string SetupCore(ClashProfile profile)
+    {
         var setupJson = JsonSerializer.Serialize(
             new LibClashSetupRequest(
                 profile.HomeDirectory,
@@ -72,36 +284,10 @@ internal sealed class AndroidClashRuntime : IClashRuntime
         var setupMessage = LibClashNative.SetupConfig(setupJson);
         if (!string.IsNullOrWhiteSpace(setupMessage))
         {
-            Publish(new ClashStatus(ClashRunState.Error, setupMessage));
-            return Task.CompletedTask;
+            return setupMessage;
         }
 
-        if (profile.EnableTun)
-        {
-            var permissionIntent = VpnService.Prepare(activity);
-            if (permissionIntent != null)
-            {
-                activity.StartActivityForResult(permissionIntent, 1000);
-                Publish(new ClashStatus(ClashRunState.Stopped, "VPN permission requested. Start again after approval."));
-                return Task.CompletedTask;
-            }
-
-            ClashVpnService.Start(activity, ClashVpnOptions.FromProfile(profile));
-        }
-        Publish(new ClashStatus(ClashRunState.Running, "Running", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
-        return Task.CompletedTask;
-    }
-
-    public Task StopAsync(CancellationToken cancellationToken = default)
-    {
-        Publish(new ClashStatus(ClashRunState.Stopping, "Stopping"));
-
-        TryStopVpn();
-        TryStopListener();
-        TryResetCore();
-        Publish(ClashStatus.Stopped);
-
-        return Task.CompletedTask;
+        return string.Empty;
     }
 
     private void TryStopVpn()
@@ -177,6 +363,36 @@ internal sealed class AndroidClashRuntime : IClashRuntime
                rules:
                  - MATCH,Proxy
                """;
+    }
+
+    private static string ToNativeSortMode(string sortMode)
+    {
+        return sortMode switch
+        {
+            "按延迟" => "Delay",
+            "按名称" => "Title",
+            _ => "Default"
+        };
+    }
+
+    private static (long Upload, long Download) UnpackTraffic(long packed)
+    {
+        var upload = DecodeTrafficUnit((uint)((ulong)packed >> 32));
+        var download = DecodeTrafficUnit((uint)((ulong)packed & uint.MaxValue));
+        return (upload, download);
+    }
+
+    private static long DecodeTrafficUnit(uint value)
+    {
+        var unit = value >> 30;
+        var amount = value & 0x3fffffff;
+        return unit switch
+        {
+            1 => amount * 1024L / 100L,
+            2 => amount * 1024L * 1024L / 100L,
+            3 => amount * 1024L * 1024L * 1024L / 100L,
+            _ => amount
+        };
     }
 
     private void Publish(ClashStatus status)

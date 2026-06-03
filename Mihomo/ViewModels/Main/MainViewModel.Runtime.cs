@@ -40,12 +40,21 @@ public partial class MainViewModel
         {
             await _runtime.StopAsync();
             ProxyGroups.Clear();
+            VisibleProxyNodes.Clear();
             SelectedGroup = null;
             UploadSpeed = "0 B/s";
             DownloadSpeed = "0 B/s";
             ConnectionCount = "0";
             TotalTraffic = "0 B";
+            TotalUpload = "0 B";
+            TotalDownload = "0 B";
+            ResetSpeedSamples();
             OnPropertyChanged(nameof(ProxySummary));
+            OnPropertyChanged(nameof(VisibleProxySummary));
+            OnPropertyChanged(nameof(HasProxyGroups));
+            OnPropertyChanged(nameof(HasVisibleProxyNodes));
+            OnPropertyChanged(nameof(MissingSelectedGroup));
+            OnPropertyChanged(nameof(MissingVisibleProxyNodes));
         });
     }
 
