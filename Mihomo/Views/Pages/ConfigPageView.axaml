@@ -1,0 +1,121 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Mihomo.ViewModels"
+             mc:Ignorable="d"
+             d:DesignWidth="390"
+             d:DesignHeight="760"
+             x:Class="Mihomo.Views.Pages.ConfigPageView"
+             x:DataType="vm:MainViewModel">
+    <ScrollViewer>
+        <StackPanel Margin="16"
+                    Spacing="14">
+            <Border Classes="card">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="运行参数"
+                               Foreground="{StaticResource Brush.TextPrimary}"
+                               FontSize="18"
+                               FontWeight="SemiBold" />
+
+                    <StackPanel Spacing="5">
+                        <TextBlock Text="Home 目录"
+                                   Foreground="{StaticResource Brush.TextSecondary}"
+                                   FontSize="12" />
+                        <TextBox Text="{Binding HomeDirectory}" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="5">
+                        <TextBlock Text="配置文件"
+                                   Foreground="{StaticResource Brush.TextSecondary}"
+                                   FontSize="12" />
+                        <TextBox Text="{Binding ConfigPath}" />
+                    </StackPanel>
+
+                    <Grid ColumnDefinitions="*,*"
+                          ColumnSpacing="10">
+                        <StackPanel Spacing="5">
+                            <TextBlock Text="Mixed Port"
+                                       Foreground="{StaticResource Brush.TextSecondary}"
+                                       FontSize="12" />
+                            <TextBox Text="{Binding MixedPort}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1"
+                                    Spacing="5">
+                            <TextBlock Text="TUN Stack"
+                                       Foreground="{StaticResource Brush.TextSecondary}"
+                                       FontSize="12" />
+                            <ComboBox ItemsSource="{Binding StackOptions}"
+                                      SelectedItem="{Binding Stack}"
+                                      HorizontalAlignment="Stretch" />
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Spacing="5">
+                        <TextBlock Text="路由 CIDR"
+                                   Foreground="{StaticResource Brush.TextSecondary}"
+                                   FontSize="12" />
+                        <TextBox Text="{Binding RouteAddressCsv}"
+                                 PlaceholderText="0.0.0.0/0,::/0" />
+                    </StackPanel>
+
+                    <Grid ColumnDefinitions="*,*"
+                          RowDefinitions="Auto,Auto"
+                          ColumnSpacing="10"
+                          RowSpacing="6">
+                        <CheckBox Content="TUN"
+                                  IsChecked="{Binding EnableTun}" />
+                        <CheckBox Grid.Column="1"
+                                  Content="IPv6"
+                                  IsChecked="{Binding EnableIpv6}" />
+                        <CheckBox Grid.Row="1"
+                                  Content="DNS Hijack"
+                                  IsChecked="{Binding DnsHijacking}" />
+                        <CheckBox Grid.Row="1"
+                                  Grid.Column="1"
+                                  Content="System Proxy"
+                                  IsChecked="{Binding SystemProxy}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <Grid RowDefinitions="Auto,Auto,*"
+                      RowSpacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="config.yaml"
+                                   Foreground="{StaticResource Brush.TextPrimary}"
+                                   FontSize="18"
+                                   FontWeight="SemiBold" />
+                        <Button Grid.Column="1"
+                                Content="校验"
+                                Command="{Binding ValidateConfigCommand}" />
+                    </Grid>
+
+                    <Grid Grid.Row="1"
+                          ColumnDefinitions="*,*,*"
+                          ColumnSpacing="8">
+                        <Button Content="保存"
+                                Command="{Binding SaveConfigCommand}" />
+                        <Button Grid.Column="1"
+                                Content="重载"
+                                Command="{Binding ReloadConfigCommand}" />
+                        <Button Grid.Column="2"
+                                Content="重置"
+                                Command="{Binding ResetConfigCommand}" />
+                    </Grid>
+
+                    <TextBox Grid.Row="2"
+                             Text="{Binding ConfigContent}"
+                             AcceptsReturn="True"
+                             TextWrapping="NoWrap"
+                             MinHeight="380"
+                             FontFamily="Consolas, Menlo, monospace"
+                             FontSize="12"
+                             PlaceholderText="粘贴 mihomo 配置" />
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

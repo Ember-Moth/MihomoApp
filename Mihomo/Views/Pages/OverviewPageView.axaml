@@ -1,0 +1,155 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Mihomo.ViewModels"
+             mc:Ignorable="d"
+             d:DesignWidth="390"
+             d:DesignHeight="760"
+             x:Class="Mihomo.Views.Pages.OverviewPageView"
+             x:DataType="vm:MainViewModel">
+    <ScrollViewer>
+        <StackPanel Margin="16"
+                    Spacing="14">
+            <Border Classes="card"
+                    Padding="18">
+                <Grid RowDefinitions="Auto,Auto,Auto"
+                      RowSpacing="14">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Mihomo Core"
+                                       Foreground="{StaticResource Brush.TextPrimary}"
+                                       FontSize="20"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding ApiBaseAddress}"
+                                       Foreground="{StaticResource Brush.TextSecondary}"
+                                       FontSize="12" />
+                        </StackPanel>
+
+                        <Button Grid.Column="1"
+                                Classes="primary"
+                                MinWidth="86"
+                                Content="{Binding RunningActionText}"
+                                Command="{Binding RunningActionCommand}" />
+                    </Grid>
+
+                    <Grid Grid.Row="1"
+                          ColumnDefinitions="*,*"
+                          ColumnSpacing="10">
+                        <Border Background="{StaticResource Brush.AccentSurface}"
+                                CornerRadius="8"
+                                Padding="12">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="上传"
+                                           Foreground="{StaticResource Brush.TextSecondary}"
+                                           FontSize="12" />
+                                <TextBlock Text="{Binding UploadSpeed}"
+                                           Foreground="{StaticResource Brush.Accent}"
+                                           FontSize="19"
+                                           FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="1"
+                                Background="{StaticResource Brush.WarningSurface}"
+                                CornerRadius="8"
+                                Padding="12">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="下载"
+                                           Foreground="{StaticResource Brush.TextSecondary}"
+                                           FontSize="12" />
+                                <TextBlock Text="{Binding DownloadSpeed}"
+                                           Foreground="{StaticResource Brush.Warning}"
+                                           FontSize="19"
+                                           FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <Grid Grid.Row="2"
+                          ColumnDefinitions="*,*"
+                          ColumnSpacing="10">
+                        <Border Background="{StaticResource Brush.InfoSurface}"
+                                CornerRadius="8"
+                                Padding="12">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="总流量"
+                                           Foreground="{StaticResource Brush.TextSecondary}"
+                                           FontSize="12" />
+                                <TextBlock Text="{Binding TotalTraffic}"
+                                           Foreground="{StaticResource Brush.Info}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="1"
+                                Background="{StaticResource Brush.SuccessSurface}"
+                                CornerRadius="8"
+                                Padding="12">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="连接"
+                                           Foreground="{StaticResource Brush.TextSecondary}"
+                                           FontSize="12" />
+                                <TextBlock Text="{Binding ConnectionCount}"
+                                           Foreground="{StaticResource Brush.Success}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Border Classes="card">
+                <Grid RowDefinitions="Auto,Auto"
+                      RowSpacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="策略组"
+                                       Foreground="{StaticResource Brush.TextPrimary}"
+                                       FontSize="17"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding ProxySummary}"
+                                       Foreground="{StaticResource Brush.TextSecondary}"
+                                       FontSize="12" />
+                        </StackPanel>
+
+                        <Button Grid.Column="1"
+                                Content="刷新"
+                                Command="{Binding RefreshProxiesCommand}" />
+                    </Grid>
+
+                    <ItemsControl Grid.Row="1"
+                                  ItemsSource="{Binding ProxyGroups}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ProxyGroupItem">
+                                <Border Margin="0,0,0,8"
+                                        Padding="12"
+                                        CornerRadius="8"
+                                        Background="{StaticResource Brush.SurfaceAlt}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="{Binding Name}"
+                                                       Foreground="{StaticResource Brush.TextPrimary}"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Summary}"
+                                                       Foreground="{StaticResource Brush.TextSecondary}"
+                                                       FontSize="12" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding Now}"
+                                                   Foreground="{StaticResource Brush.Accent}"
+                                                   MaxWidth="120"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

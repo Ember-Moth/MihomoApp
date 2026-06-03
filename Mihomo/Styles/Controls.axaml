@@ -1,0 +1,67 @@
+<Styles xmlns="https://github.com/avaloniaui">
+    <Style Selector="Button">
+        <Setter Property="MinHeight" Value="42" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
+        <Setter Property="Background" Value="{StaticResource Brush.SurfaceRaised}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+    </Style>
+
+    <Style Selector="Button:pointerover">
+        <Setter Property="Background" Value="{StaticResource Brush.SurfaceAlt}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+    </Style>
+
+    <Style Selector="Button:disabled">
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+        <Setter Property="Background" Value="{StaticResource Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderMuted}" />
+    </Style>
+
+    <Style Selector="Button.primary">
+        <Setter Property="Foreground" Value="{StaticResource Brush.AccentForeground}" />
+        <Setter Property="Background" Value="{StaticResource Brush.Accent}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentPressed}" />
+    </Style>
+
+    <Style Selector="Button.nav">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextSecondary}" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <Style Selector="Button.nav.active">
+        <Setter Property="Background" Value="{StaticResource Brush.AccentSurface}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentSurface}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+    </Style>
+
+    <Style Selector="Border.card">
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Background" Value="{StaticResource Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderMuted}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="14" />
+    </Style>
+
+    <Style Selector="TextBox">
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
+        <Setter Property="Background" Value="{StaticResource Brush.InputBackground}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+        <Setter Property="CornerRadius" Value="7" />
+    </Style>
+
+    <Style Selector="ComboBox">
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
+        <Setter Property="Background" Value="{StaticResource Brush.InputBackground}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+        <Setter Property="CornerRadius" Value="7" />
+    </Style>
+
+    <Style Selector="CheckBox">
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
+        <Setter Property="MinHeight" Value="40" />
+    </Style>
+</Styles>

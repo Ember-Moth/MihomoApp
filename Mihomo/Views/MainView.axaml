@@ -1,0 +1,86 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Mihomo.ViewModels"
+             xmlns:pages="using:Mihomo.Views.Pages"
+             mc:Ignorable="d"
+             d:DesignWidth="390"
+             d:DesignHeight="844"
+             x:Class="Mihomo.Views.MainView"
+             x:DataType="vm:MainViewModel">
+    <Design.DataContext>
+        <vm:MainViewModel />
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto"
+          Background="{StaticResource Brush.PageBackground}">
+        <Border Grid.Row="0"
+                Padding="18,16,18,12"
+                Background="{StaticResource Brush.ShellBackground}">
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12">
+                <StackPanel Spacing="3">
+                    <TextBlock Text="Mihomo"
+                               Foreground="{StaticResource Brush.TextPrimary}"
+                               FontSize="25"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding LastMessage}"
+                               Foreground="{StaticResource Brush.TextSecondary}"
+                               FontSize="12"
+                               MaxLines="2"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+
+                <Border Grid.Column="1"
+                        MinWidth="86"
+                        Height="34"
+                        Padding="12,0"
+                        VerticalAlignment="Top"
+                        CornerRadius="17"
+                        Background="{StaticResource Brush.AccentSurface}">
+                    <TextBlock Text="{Binding StateText}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource Brush.Accent}"
+                               FontSize="12"
+                               FontWeight="SemiBold" />
+                </Border>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <pages:OverviewPageView IsVisible="{Binding IsOverviewPage}" />
+            <pages:ProfilesPageView IsVisible="{Binding IsProfilesPage}" />
+            <pages:ProxiesPageView IsVisible="{Binding IsProxiesPage}" />
+            <pages:ConfigPageView IsVisible="{Binding IsConfigPage}" />
+        </Grid>
+
+        <Border Grid.Row="2"
+                Padding="8,6"
+                Background="{StaticResource Brush.ShellBackground}">
+            <Grid ColumnDefinitions="*,*,*,*">
+                <Button Classes="nav"
+                        Classes.active="{Binding IsOverviewPage}"
+                        Grid.Column="0"
+                        Content="概览"
+                        Command="{Binding ShowOverviewCommand}" />
+                <Button Classes="nav"
+                        Classes.active="{Binding IsProfilesPage}"
+                        Grid.Column="1"
+                        Content="订阅"
+                        Command="{Binding ShowProfilesCommand}" />
+                <Button Classes="nav"
+                        Classes.active="{Binding IsProxiesPage}"
+                        Grid.Column="2"
+                        Content="代理"
+                        Command="{Binding ShowProxiesCommand}" />
+                <Button Classes="nav"
+                        Classes.active="{Binding IsConfigPage}"
+                        Grid.Column="3"
+                        Content="配置"
+                        Command="{Binding ShowConfigCommand}" />
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

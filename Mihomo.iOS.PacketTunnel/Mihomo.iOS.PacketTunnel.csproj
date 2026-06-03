@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <SupportedOSPlatformVersion>13.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsAppExtension>true</IsAppExtension>
+    <ApplicationId>com.embermoth.mihomo.PacketTunnel</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <RuntimeIdentifiers>ios-arm64;iossimulator-arm64</RuntimeIdentifiers>
+    <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <TrimMode>full</TrimMode>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LibClashIosNativeArchive Condition="'$(LibClashIosNativeArchive)' == '' and '$(RuntimeIdentifier)' == 'ios-arm64'">NativeLibraries/ios/iphoneos-arm64/libclash.a</LibClashIosNativeArchive>
+    <LibClashIosNativeArchive Condition="'$(LibClashIosNativeArchive)' == '' and '$(RuntimeIdentifier)' == 'iossimulator-arm64'">NativeLibraries/ios/iphonesimulator/libclash.a</LibClashIosNativeArchive>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(LibClashIosNativeArchive)' != '' and Exists('$(LibClashIosNativeArchive)')">
+    <NativeReference Include="$(LibClashIosNativeArchive)">
+      <Kind>Static</Kind>
+      <ForceLoad>true</ForceLoad>
+      <SmartLink>true</SmartLink>
+    </NativeReference>
+  </ItemGroup>
+</Project>

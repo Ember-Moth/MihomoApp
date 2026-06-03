@@ -1,0 +1,24 @@
+using Foundation;
+using NetworkExtension;
+using Mihomo.iOS.PacketTunnel.Services;
+
+namespace Mihomo.iOS.PacketTunnel;
+
+[Register("PacketTunnelProvider")]
+public sealed class PacketTunnelProvider : NEPacketTunnelProvider
+{
+    private PacketTunnelRuntime? runtime;
+
+    public override void StartTunnel(NSDictionary<NSString, NSObject> options, Action<NSError?> completionHandler)
+    {
+        runtime = new PacketTunnelRuntime(this);
+        runtime.Start(options, completionHandler);
+    }
+
+    public override void StopTunnel(NEProviderStopReason reason, Action completionHandler)
+    {
+        runtime?.Stop();
+        runtime = null;
+        completionHandler();
+    }
+}

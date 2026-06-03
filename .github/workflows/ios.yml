@@ -1,0 +1,107 @@
+name: Build iOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      libclash_run_id:
+        description: "Optional libclash workflow run id. Empty means latest successful main build."
+        required: false
+        type: string
+  push:
+    branches:
+      - main
+    paths:
+      - "Mihomo/**"
+      - "Mihomo.iOS/**"
+      - "Mihomo.iOS.PacketTunnel/**"
+      - "Directory.Packages.props"
+      - "Mihomo.slnx"
+      - ".github/workflows/ios.yml"
+  pull_request:
+    paths:
+      - "Mihomo/**"
+      - "Mihomo.iOS/**"
+      - "Mihomo.iOS.PacketTunnel/**"
+      - "Directory.Packages.props"
+      - "Mihomo.slnx"
+      - ".github/workflows/ios.yml"
+
+jobs:
+  build:
+    name: Build Mihomo iOS
+    runs-on: macos-latest
+    permissions:
+      contents: read
+      actions: read
+
+    env:
+      DOTNET_VERSION: "10.0.x"
+      GH_TOKEN: ${{ secrets.LIBCLASH_ARTIFACT_TOKEN || github.token }}
+      LIBCLASH_RUN_ID: ${{ github.event.inputs.libclash_run_id }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install iOS workload
+        run: dotnet workload install ios
+
+      - name: Download libclash iOS artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/libclash-ios
+
+          if [[ -n "$LIBCLASH_RUN_ID" ]]; then
+            run_id="$LIBCLASH_RUN_ID"
+          else
+            run_id="$(gh run list \
+              --repo Ember-Moth/libclash \
+              --workflow build-ios.yml \
+              --branch main \
+              --status success \
+              --limit 1 \
+              --json databaseId \
+              --jq '.[0].databaseId')"
+          fi
+
+          if [[ -z "$run_id" || "$run_id" == "null" ]]; then
+            echo "No successful libclash iOS workflow run found" >&2
+            exit 1
+          fi
+
+          gh run download "$run_id" \
+            --repo Ember-Moth/libclash \
+            --name libclash-ios \
+            --dir artifacts/libclash-ios
+
+          mkdir -p Mihomo.iOS.PacketTunnel/NativeLibraries
+          tar -xzf artifacts/libclash-ios/libclash-ios.tar.gz -C Mihomo.iOS.PacketTunnel/NativeLibraries
+
+      - name: Restore
+        run: dotnet restore Mihomo.iOS/Mihomo.iOS.csproj -r iossimulator-arm64
+
+      - name: Publish iOS simulator app
+        run: |
+          dotnet publish Mihomo.iOS/Mihomo.iOS.csproj \
+            -c Release \
+            -f net10.0-ios \
+            -r iossimulator-arm64 \
+            -p:LibClashIosNativeArchive="$PWD/Mihomo.iOS.PacketTunnel/NativeLibraries/ios/iphonesimulator/libclash.a" \
+            -p:UseSharedCompilation=false \
+            -nr:false
+
+      - name: Upload iOS simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: mihomo-ios-simulator
+          path: |
+            Mihomo.iOS/bin/Release/net10.0-ios/iossimulator-arm64/publish/**/*.app
+            Mihomo.iOS/bin/Release/net10.0-ios/iossimulator-arm64/**/*.app
+          if-no-files-found: warn
+          retention-days: 14

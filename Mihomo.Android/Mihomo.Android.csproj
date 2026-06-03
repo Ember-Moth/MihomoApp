@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationId>com.embermoth.mihomo</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <RuntimeIdentifiers>android-arm;android-arm64;android-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RunAOTCompilation>true</RunAOTCompilation>
+    <AndroidAotEnableLazyLoad>true</AndroidAotEnableLazyLoad>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AndroidResource Include="Icon.png">
+      <Link>Resources\drawable\icon.png</Link>
+    </AndroidResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Android" />
+    <PackageReference Include="Xamarin.AndroidX.Core.SplashScreen" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mihomo\Mihomo.csproj" />
+  </ItemGroup>
+</Project>
