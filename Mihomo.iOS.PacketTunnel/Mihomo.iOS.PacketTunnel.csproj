@@ -14,6 +14,10 @@
     <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'iossimulator-arm64'">
+    <EnableCodeSigning>false</EnableCodeSigning>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <PublishAot>true</PublishAot>
     <IsAotCompatible>true</IsAotCompatible>

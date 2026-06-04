@@ -2,12 +2,6 @@ name: Build Android Release
 
 on:
   workflow_dispatch:
-    inputs:
-      libclash_ref:
-        description: "libclash git ref to build."
-        required: false
-        default: "main"
-        type: string
   release:
     types:
       - published
@@ -22,6 +16,9 @@ on:
       - "global.json"
       - "Mihomo.slnx"
       - "scripts/**"
+      - ".gitmodules"
+      - "libclash"
+      - "libclash/**"
       - ".github/workflows/android-release.yml"
   pull_request:
     paths:
@@ -32,6 +29,9 @@ on:
       - "global.json"
       - "Mihomo.slnx"
       - "scripts/**"
+      - ".gitmodules"
+      - "libclash"
+      - "libclash/**"
       - ".github/workflows/android-release.yml"
 
 jobs:
@@ -44,18 +44,12 @@ jobs:
     env:
       DOTNET_VERSION: "11.0.100-preview.4.26230.115"
       ANDROID_NDK_VERSION: "27.1.12297006"
-      LIBCLASH_REF: ${{ github.event.inputs.libclash_ref || 'main' }}
 
     steps:
       - name: Checkout Mihomo
         uses: actions/checkout@v4
-
-      - name: Checkout libclash
-        uses: actions/checkout@v4
         with:
-          repository: Ember-Moth/libclash
-          ref: ${{ env.LIBCLASH_REF }}
-          path: .tmp/libclash
+          submodules: recursive
           token: ${{ secrets.LIBCLASH_ARTIFACT_TOKEN || github.token }}
 
       - name: Set up Java
@@ -67,8 +61,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: .tmp/libclash/go.mod
-          cache-dependency-path: .tmp/libclash/go.sum
+          go-version-file: libclash/go.mod
+          cache-dependency-path: libclash/go.sum
 
       - name: Install Android NDK
         shell: bash
@@ -80,7 +74,14 @@ jobs:
             sdkmanager_path="$(command -v sdkmanager)"
           fi
 
+          set +o pipefail
           yes | "$sdkmanager_path" --licenses >/dev/null
+          license_status="${PIPESTATUS[1]}"
+          set -o pipefail
+          if [[ "$license_status" -ne 0 ]]; then
+            exit "$license_status"
+          fi
+
           "$sdkmanager_path" "platforms;android-36" "ndk;$ANDROID_NDK_VERSION"
 
           echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
@@ -93,7 +94,7 @@ jobs:
 
           ANDROID_API_LEVEL=23 \
           INSTALL_DIR="$PWD/Mihomo.Android/NativeLibraries" \
-          bash .tmp/libclash/scripts/build-cshared-android.sh
+          bash libclash/scripts/build-cshared-android.sh
 
       - name: Install project-local .NET 11 SDK
         run: ./scripts/install-dotnet11-sdk.sh

@@ -9,16 +9,9 @@ namespace Mihomo.iOS.Services;
 
 internal sealed class IosClashRuntime : IClashRuntime
 {
-    private const string ExternalControllerListenAt = "127.0.0.1:9090";
-    private const string ExternalControllerBaseUrl = "http://127.0.0.1:9090";
     private const string PacketTunnelBundleIdentifier = "com.embermoth.mihomo.PacketTunnel";
     private const string AppGroupIdentifier = "group.com.embermoth.mihomo";
-
-    private readonly HttpClient controllerClient = new() { BaseAddress = new Uri(ExternalControllerBaseUrl) };
-    private readonly object trafficLock = new();
-    private DateTimeOffset? lastTrafficAt;
-    private long lastUploadTotal;
-    private long lastDownloadTotal;
+    private static readonly TimeSpan StartReadyTimeout = TimeSpan.FromSeconds(10);
 
     public event EventHandler<ClashStatus>? StatusChanged;
 
@@ -46,14 +39,33 @@ internal sealed class IosClashRuntime : IClashRuntime
         return Task.CompletedTask;
     }
 
-    public Task<string> ValidateConfigAsync(string configPath, CancellationToken cancellationToken = default)
+    public async Task<string> ValidateConfigAsync(string configPath, CancellationToken cancellationToken = default)
     {
         if (!File.Exists(configPath))
         {
-            return Task.FromResult($"Config file not found: {configPath}");
+            return $"Config file not found: {configPath}";
         }
 
-        return Task.FromResult(string.Empty);
+        if (Status.State != ClashRunState.Running)
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            var response = await SendIpcAsync(
+                new TunnelIpcRequest
+                {
+                    Action = "validate-config",
+                    ConfigPath = configPath
+                },
+                cancellationToken);
+            return response.Ok ? response.Payload : response.Error;
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     public async Task StartAsync(ClashProfile profile, CancellationToken cancellationToken = default)
@@ -84,7 +96,20 @@ internal sealed class IosClashRuntime : IClashRuntime
                 return;
             }
 
+            var ready = await WaitForReadyAsync(session, cancellationToken);
+            if (!ready.Ok || !ready.BoolValue)
+            {
+                Publish(new ClashStatus(
+                    ClashRunState.Error,
+                    string.IsNullOrWhiteSpace(ready.Error) ? "Packet tunnel core did not become ready" : ready.Error));
+                return;
+            }
+
             Publish(new ClashStatus(ClashRunState.Running, "Running", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        }
+        catch (OperationCanceledException)
+        {
+            Publish(ClashStatus.Stopped);
         }
         catch (Exception ex)
         {
@@ -118,35 +143,52 @@ internal sealed class IosClashRuntime : IClashRuntime
     {
         try
         {
-            var json = await controllerClient.GetStringAsync("/proxies", cancellationToken);
-            var response = JsonSerializer.Deserialize(
-                json,
-                IosClashJsonContext.Default.IosControllerProxiesResponse);
-            var proxyMap = response?.Proxies;
-            if (proxyMap is not { Count: > 0 })
+            var namesResponse = await SendIpcAsync(
+                new TunnelIpcRequest { Action = "query-group-names" },
+                cancellationToken);
+            if (!namesResponse.Ok || string.IsNullOrWhiteSpace(namesResponse.Payload))
             {
                 return [];
             }
 
-            var groups = new List<ClashProxyGroup>();
-            foreach (var (name, group) in proxyMap)
+            var names = JsonSerializer.Deserialize(
+                namesResponse.Payload,
+                IosClashJsonContext.Default.ListString) ?? [];
+            var nativeSortMode = ToNativeSortMode(sortMode);
+            var groups = new List<ClashProxyGroup>(names.Count);
+
+            foreach (var name in names)
             {
-                if (group.All is not { Count: > 0 } all)
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var groupResponse = await SendIpcAsync(
+                    new TunnelIpcRequest
+                    {
+                        Action = "query-group",
+                        GroupName = name,
+                        SortMode = nativeSortMode
+                    },
+                    cancellationToken);
+                if (!groupResponse.Ok || string.IsNullOrWhiteSpace(groupResponse.Payload))
                 {
                     continue;
                 }
 
-                var proxies = all
-                    .Where(proxyName => !string.IsNullOrWhiteSpace(proxyName))
-                    .Select(proxyName =>
-                    {
-                        proxyMap.TryGetValue(proxyName, out var proxy);
-                        return new ClashProxy(
-                            proxyName,
-                            proxy?.Type ?? string.Empty,
-                            proxy?.Now ?? string.Empty,
-                            LatestDelay(proxy));
-                    })
+                var group = JsonSerializer.Deserialize(
+                    groupResponse.Payload,
+                    IosClashJsonContext.Default.IosNativeProxyGroup);
+                if (group?.Proxies is not { Count: > 0 } proxies)
+                {
+                    continue;
+                }
+
+                var nodes = proxies
+                    .Where(proxy => !string.IsNullOrWhiteSpace(proxy.Name))
+                    .Select(proxy => new ClashProxy(
+                        proxy.Name ?? string.Empty,
+                        proxy.Type ?? proxy.Subtitle ?? string.Empty,
+                        string.Empty,
+                        proxy.Delay > 0 && proxy.Delay < ushort.MaxValue ? proxy.Delay : null))
                     .ToArray();
 
                 groups.Add(new ClashProxyGroup(
@@ -154,7 +196,7 @@ internal sealed class IosClashRuntime : IClashRuntime
                     group.Type ?? string.Empty,
                     group.Now ?? string.Empty,
                     string.Empty,
-                    proxies));
+                    nodes));
             }
 
             return groups;
@@ -169,29 +211,17 @@ internal sealed class IosClashRuntime : IClashRuntime
     {
         try
         {
-            var snapshot = await GetConnectionsSnapshotAsync(cancellationToken);
-            var now = DateTimeOffset.UtcNow;
-
-            lock (trafficLock)
+            var response = await SendIpcAsync(
+                new TunnelIpcRequest { Action = "traffic" },
+                cancellationToken);
+            if (!response.Ok)
             {
-                var elapsed = lastTrafficAt == null ? 0 : Math.Max(0.001, (now - lastTrafficAt.Value).TotalSeconds);
-                var uploadRate = lastTrafficAt == null
-                    ? 0
-                    : (long)Math.Max(0, (snapshot.UploadTotal - lastUploadTotal) / elapsed);
-                var downloadRate = lastTrafficAt == null
-                    ? 0
-                    : (long)Math.Max(0, (snapshot.DownloadTotal - lastDownloadTotal) / elapsed);
-
-                lastTrafficAt = now;
-                lastUploadTotal = snapshot.UploadTotal;
-                lastDownloadTotal = snapshot.DownloadTotal;
-
-                return new ClashTraffic(
-                    uploadRate,
-                    downloadRate,
-                    snapshot.UploadTotal,
-                    snapshot.DownloadTotal);
+                return null;
             }
+
+            var now = UnpackTraffic(response.LongValue);
+            var total = UnpackTraffic(response.SecondLongValue);
+            return new ClashTraffic(now.Upload, now.Download, total.Upload, total.Download);
         }
         catch
         {
@@ -203,8 +233,10 @@ internal sealed class IosClashRuntime : IClashRuntime
     {
         try
         {
-            var snapshot = await GetConnectionsSnapshotAsync(cancellationToken);
-            return snapshot.Connections?.Count;
+            var response = await SendIpcAsync(
+                new TunnelIpcRequest { Action = "connection-count" },
+                cancellationToken);
+            return response.Ok ? response.IntValue : null;
         }
         catch
         {
@@ -219,14 +251,15 @@ internal sealed class IosClashRuntime : IClashRuntime
     {
         try
         {
-            using var request = CreateJsonRequest(
-                HttpMethod.Put,
-                $"/proxies/{Uri.EscapeDataString(groupName)}",
-                JsonSerializer.Serialize(
-                    new IosControllerNameRequest(proxyName),
-                    IosClashJsonContext.Default.IosControllerNameRequest));
-            using var response = await controllerClient.SendAsync(request, cancellationToken);
-            return response.IsSuccessStatusCode;
+            var response = await SendIpcAsync(
+                new TunnelIpcRequest
+                {
+                    Action = "select-proxy",
+                    GroupName = groupName,
+                    ProxyName = proxyName
+                },
+                cancellationToken);
+            return response.Ok && response.BoolValue;
         }
         catch
         {
@@ -238,14 +271,14 @@ internal sealed class IosClashRuntime : IClashRuntime
     {
         try
         {
-            using var request = CreateJsonRequest(
-                HttpMethod.Patch,
-                "/configs",
-                JsonSerializer.Serialize(
-                    new IosControllerModeRequest(mode),
-                    IosClashJsonContext.Default.IosControllerModeRequest));
-            using var response = await controllerClient.SendAsync(request, cancellationToken);
-            return response.IsSuccessStatusCode;
+            var response = await SendIpcAsync(
+                new TunnelIpcRequest
+                {
+                    Action = "set-mode",
+                    Mode = mode
+                },
+                cancellationToken);
+            return response.Ok && response.BoolValue;
         }
         catch
         {
@@ -261,13 +294,16 @@ internal sealed class IosClashRuntime : IClashRuntime
     {
         try
         {
-            var path = $"/proxies/{Uri.EscapeDataString(proxyName)}/delay" +
-                $"?timeout={timeoutMilliseconds}&url={Uri.EscapeDataString(testUrl)}";
-            var json = await controllerClient.GetStringAsync(path, cancellationToken);
-            var response = JsonSerializer.Deserialize(
-                json,
-                IosClashJsonContext.Default.IosControllerDelayResponse);
-            return response?.Delay > 0 ? response.Delay : null;
+            var response = await SendIpcAsync(
+                new TunnelIpcRequest
+                {
+                    Action = "test-proxy-delay",
+                    ProxyName = proxyName,
+                    TestUrl = testUrl,
+                    TimeoutMilliseconds = timeoutMilliseconds
+                },
+                cancellationToken);
+            return response.Ok && response.IntValue > 0 ? response.IntValue : null;
         }
         catch
         {
@@ -275,17 +311,31 @@ internal sealed class IosClashRuntime : IClashRuntime
         }
     }
 
-    public Task HealthCheckAsync(string groupName, CancellationToken cancellationToken = default)
+    public async Task HealthCheckAsync(string groupName, CancellationToken cancellationToken = default)
     {
-        return Task.CompletedTask;
+        try
+        {
+            _ = await SendIpcAsync(
+                new TunnelIpcRequest
+                {
+                    Action = "health-check",
+                    GroupName = groupName
+                },
+                cancellationToken);
+        }
+        catch
+        {
+            // Health checks are best-effort UI refresh hints.
+        }
     }
 
     public async Task CloseAllConnectionsAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Delete, "/connections");
-            using var response = await controllerClient.SendAsync(request, cancellationToken);
+            _ = await SendIpcAsync(
+                new TunnelIpcRequest { Action = "close-connections" },
+                cancellationToken);
         }
         catch
         {
@@ -293,29 +343,101 @@ internal sealed class IosClashRuntime : IClashRuntime
         }
     }
 
-    private async Task<IosControllerConnectionsResponse> GetConnectionsSnapshotAsync(
+    private static async Task<TunnelIpcResponse> WaitForReadyAsync(
+        NETunnelProviderSession session,
         CancellationToken cancellationToken)
     {
-        var json = await controllerClient.GetStringAsync("/connections", cancellationToken);
-        return JsonSerializer.Deserialize(
-            json,
-            IosClashJsonContext.Default.IosControllerConnectionsResponse) ?? new IosControllerConnectionsResponse();
-    }
+        Exception? lastError = null;
+        var deadline = DateTimeOffset.UtcNow + StartReadyTimeout;
 
-    private static HttpRequestMessage CreateJsonRequest(HttpMethod method, string path, string json)
-    {
-        return new HttpRequestMessage(method, path)
+        while (DateTimeOffset.UtcNow < deadline)
         {
-            Content = new StringContent(json, Encoding.UTF8, "application/json")
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                var response = await SendIpcAsync(
+                    session,
+                    new TunnelIpcRequest { Action = "status" },
+                    cancellationToken);
+                if (response.Ok && response.BoolValue)
+                {
+                    return response;
+                }
+
+                if (!response.Ok)
+                {
+                    lastError = new InvalidOperationException(response.Error);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+            }
+
+            await Task.Delay(500, cancellationToken);
+        }
+
+        return new TunnelIpcResponse
+        {
+            Ok = false,
+            Error = lastError?.Message ?? "packet tunnel did not reply before timeout"
         };
     }
 
-    private static int? LatestDelay(IosControllerProxy? proxy)
+    private static async Task<TunnelIpcResponse> SendIpcAsync(
+        TunnelIpcRequest request,
+        CancellationToken cancellationToken)
     {
-        var delay = proxy?.History?
-            .LastOrDefault(history => history.Delay > 0)?
-            .Delay;
-        return delay > 0 ? delay : null;
+        var session = await LoadTunnelSessionAsync();
+        return await SendIpcAsync(session, request, cancellationToken);
+    }
+
+    private static async Task<TunnelIpcResponse> SendIpcAsync(
+        NETunnelProviderSession session,
+        TunnelIpcRequest request,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var requestJson = JsonSerializer.Serialize(request, IosClashJsonContext.Default.TunnelIpcRequest);
+        using var requestData = NSData.FromArray(Encoding.UTF8.GetBytes(requestJson));
+        var completion = new TaskCompletionSource<NSData?>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        if (!session.SendProviderMessage(requestData, out var error, responseData =>
+            {
+                completion.TrySetResult(responseData);
+            }))
+        {
+            throw new InvalidOperationException(error?.LocalizedDescription ?? "failed to send packet tunnel message");
+        }
+
+        using var registration = cancellationToken.Register(() => completion.TrySetCanceled(cancellationToken));
+        var response = await completion.Task.ConfigureAwait(false);
+        if (response == null || response.Length == 0)
+        {
+            throw new InvalidOperationException("packet tunnel returned an empty response");
+        }
+
+        var responseJson = Encoding.UTF8.GetString(response.ToArray());
+        return JsonSerializer.Deserialize(
+            responseJson,
+            IosClashJsonContext.Default.TunnelIpcResponse) ?? new TunnelIpcResponse
+            {
+                Ok = false,
+                Error = "packet tunnel returned an invalid response"
+            };
+    }
+
+    private static async Task<NETunnelProviderSession> LoadTunnelSessionAsync()
+    {
+        var manager = await LoadOrCreateManagerAsync();
+        return manager.Connection as NETunnelProviderSession ??
+            throw new InvalidOperationException("configured VPN connection is not a NETunnelProviderSession");
     }
 
     private static async Task<NETunnelProviderManager> LoadOrCreateManagerAsync()
@@ -458,6 +580,36 @@ internal sealed class IosClashRuntime : IClashRuntime
                rules:
                  - MATCH,Proxy
                """;
+    }
+
+    private static string ToNativeSortMode(string sortMode)
+    {
+        return sortMode switch
+        {
+            "按延迟" => "Delay",
+            "按名称" => "Title",
+            _ => "Default"
+        };
+    }
+
+    private static (long Upload, long Download) UnpackTraffic(long packed)
+    {
+        var upload = DecodeTrafficUnit((uint)((ulong)packed >> 32));
+        var download = DecodeTrafficUnit((uint)((ulong)packed & uint.MaxValue));
+        return (upload, download);
+    }
+
+    private static long DecodeTrafficUnit(uint value)
+    {
+        var unit = value >> 30;
+        var amount = value & 0x3fffffff;
+        return unit switch
+        {
+            1 => amount * 1024L / 100L,
+            2 => amount * 1024L * 1024L / 100L,
+            3 => amount * 1024L * 1024L * 1024L / 100L,
+            _ => amount
+        };
     }
 
     private void Publish(ClashStatus status)

@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using Foundation;
 using NetworkExtension;
@@ -7,9 +8,10 @@ namespace Mihomo.iOS.PacketTunnel.Services;
 
 internal sealed class PacketTunnelRuntime
 {
-    private const string ExternalControllerListenAt = "127.0.0.1:9090";
-
+    private readonly object sync = new();
     private readonly NEPacketTunnelProvider provider;
+    private MemoryPressureMaintenance? memoryMaintenance;
+    private bool coreStarted;
 
     public PacketTunnelRuntime(NEPacketTunnelProvider provider)
     {
@@ -29,6 +31,7 @@ internal sealed class PacketTunnelRuntime
                 return;
             }
 
+            MemoryPressure.ConfigureNativeRuntime();
             Directory.CreateDirectory(tunnelOptions.HomeDirectory);
             LibClashNative.Init(tunnelOptions.HomeDirectory);
 
@@ -52,26 +55,48 @@ internal sealed class PacketTunnelRuntime
 
     public void Stop()
     {
-        try
-        {
-            LibClashNative.StopTun();
-        }
-        catch
-        {
-            // The tunnel may not have started fully.
-        }
+        memoryMaintenance?.Dispose();
+        memoryMaintenance = null;
 
-        try
+        lock (sync)
         {
-            LibClashNative.StopListener();
-            LibClashNative.Reset();
-        }
-        catch
-        {
-            // The core may already be stopped.
+            coreStarted = false;
+
+            try
+            {
+                LibClashNative.StopTun();
+            }
+            catch
+            {
+                // The tunnel may not have started fully.
+            }
+
+            try
+            {
+                LibClashNative.StopListener();
+                LibClashNative.Reset();
+            }
+            catch
+            {
+                // The core may already be stopped.
+            }
         }
 
         MemoryPressure.Trim();
+    }
+
+    public NSData HandleAppMessage(NSData messageData)
+    {
+        try
+        {
+            var request = DecodeRequest(messageData);
+            var response = HandleRequest(request);
+            return EncodeResponse(response);
+        }
+        catch (Exception ex)
+        {
+            return EncodeResponse(Fail(ex.Message));
+        }
     }
 
     private static NEPacketTunnelNetworkSettings CreateNetworkSettings(TunnelOptions options)
@@ -120,25 +145,152 @@ internal sealed class PacketTunnelRuntime
             return;
         }
 
-        var setupJson = JsonSerializer.Serialize(
-            new LibClashSetupRequest(
-                options.HomeDirectory,
-                options.ConfigPath,
-                ExternalControllerListenAt,
-                options.MixedPort,
-                "https://www.gstatic.com/generate_204"),
-            PacketTunnelJsonContext.Default.LibClashSetupRequest);
-
-        var setupMessage = LibClashNative.SetupConfig(setupJson);
-        if (!string.IsNullOrWhiteSpace(setupMessage))
+        lock (sync)
         {
-            completionHandler(CreateError(setupMessage));
-            return;
+            var setupJson = JsonSerializer.Serialize(
+                new LibClashSetupRequest(
+                    options.HomeDirectory,
+                    options.ConfigPath,
+                    string.Empty,
+                    options.MixedPort,
+                    "https://www.gstatic.com/generate_204"),
+                PacketTunnelJsonContext.Default.LibClashSetupRequest);
+
+            var setupMessage = LibClashNative.SetupConfig(setupJson);
+            if (!string.IsNullOrWhiteSpace(setupMessage))
+            {
+                completionHandler(CreateError(setupMessage));
+                return;
+            }
+
+            LibClashNative.StartTun(fd, options.Stack, options.TunAddressCsv, options.TunDnsCsv);
+            coreStarted = true;
         }
 
-        LibClashNative.StartTun(fd, options.Stack, options.TunAddressCsv, options.TunDnsCsv);
         MemoryPressure.Trim();
+        memoryMaintenance = new MemoryPressureMaintenance();
         completionHandler(null);
+    }
+
+    private TunnelIpcResponse HandleRequest(TunnelIpcRequest request)
+    {
+        lock (sync)
+        {
+            return request.Action switch
+            {
+                "status" => Ok(boolValue: coreStarted),
+                "validate-config" => ValidateConfig(request.ConfigPath),
+                "query-group-names" => WithCore(() => Ok(
+                    payload: LibClashNative.QueryGroupNames(excludeNotSelectable: false))),
+                "query-group" => WithCore(() => Ok(
+                    payload: LibClashNative.QueryGroup(Require(request.GroupName, "groupName"), request.SortMode ?? "Default"))),
+                "traffic" => WithCore(() => Ok(
+                    longValue: LibClashNative.QueryTrafficNow(),
+                    secondLongValue: LibClashNative.QueryTrafficTotal())),
+                "connection-count" => WithCore(() => Ok(intValue: LibClashNative.QueryConnectionCount())),
+                "select-proxy" => WithCore(() => Ok(
+                    boolValue: LibClashNative.PatchSelector(
+                        Require(request.GroupName, "groupName"),
+                        Require(request.ProxyName, "proxyName")))),
+                "set-mode" => WithCore(() => Ok(boolValue: LibClashNative.SetMode(Require(request.Mode, "mode")))),
+                "test-proxy-delay" => WithCore(() => Ok(
+                    intValue: LibClashNative.TestProxyDelay(
+                        Require(request.ProxyName, "proxyName"),
+                        string.IsNullOrWhiteSpace(request.TestUrl)
+                            ? "https://www.gstatic.com/generate_204"
+                            : request.TestUrl,
+                        request.TimeoutMilliseconds <= 0 ? 5000 : request.TimeoutMilliseconds) ?? 0)),
+                "health-check" => WithCore(() =>
+                {
+                    if (string.IsNullOrWhiteSpace(request.GroupName))
+                    {
+                        LibClashNative.HealthCheckAll();
+                    }
+                    else
+                    {
+                        LibClashNative.HealthCheck(request.GroupName);
+                    }
+
+                    return Ok();
+                }),
+                "close-connections" => WithCore(() =>
+                {
+                    LibClashNative.CloseAllConnections();
+                    return Ok();
+                }),
+                "force-gc" => OkAfterGc(),
+                _ => Fail($"unsupported action: {request.Action}")
+            };
+        }
+    }
+
+    private TunnelIpcResponse WithCore(Func<TunnelIpcResponse> action)
+    {
+        return coreStarted ? action() : Fail("packet tunnel core is not running");
+    }
+
+    private static TunnelIpcResponse ValidateConfig(string? configPath)
+    {
+        if (string.IsNullOrWhiteSpace(configPath))
+        {
+            return Fail("configPath is empty");
+        }
+
+        return Ok(payload: LibClashNative.ValidateConfig(configPath));
+    }
+
+    private static TunnelIpcResponse OkAfterGc()
+    {
+        MemoryPressure.Trim();
+        return Ok();
+    }
+
+    private static TunnelIpcRequest DecodeRequest(NSData messageData)
+    {
+        var json = Encoding.UTF8.GetString(messageData.ToArray());
+        return JsonSerializer.Deserialize(
+            json,
+            PacketTunnelJsonContext.Default.TunnelIpcRequest) ?? new TunnelIpcRequest();
+    }
+
+    private static NSData EncodeResponse(TunnelIpcResponse response)
+    {
+        var json = JsonSerializer.Serialize(response, PacketTunnelJsonContext.Default.TunnelIpcResponse);
+        return NSData.FromArray(Encoding.UTF8.GetBytes(json));
+    }
+
+    private static TunnelIpcResponse Ok(
+        string payload = "",
+        long longValue = 0,
+        long secondLongValue = 0,
+        int intValue = 0,
+        bool boolValue = false)
+    {
+        return new TunnelIpcResponse
+        {
+            Ok = true,
+            Payload = payload,
+            LongValue = longValue,
+            SecondLongValue = secondLongValue,
+            IntValue = intValue,
+            BoolValue = boolValue
+        };
+    }
+
+    private static TunnelIpcResponse Fail(string error)
+    {
+        return new TunnelIpcResponse
+        {
+            Ok = false,
+            Error = error
+        };
+    }
+
+    private static string Require(string? value, string name)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? throw new InvalidOperationException($"{name} is empty")
+            : value;
     }
 
     private static NSError CreateError(string message)

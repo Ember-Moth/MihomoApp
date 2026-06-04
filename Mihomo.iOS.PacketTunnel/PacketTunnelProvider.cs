@@ -21,4 +21,11 @@ public sealed class PacketTunnelProvider : NEPacketTunnelProvider
         runtime = null;
         completionHandler();
     }
+
+    public override void HandleAppMessage(NSData messageData, Action<NSData> completionHandler)
+    {
+        var response = runtime?.HandleAppMessage(messageData) ??
+            NSData.FromArray("{\"ok\":false,\"error\":\"packet tunnel runtime is not running\"}"u8.ToArray());
+        completionHandler(response);
+    }
 }

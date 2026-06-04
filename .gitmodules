@@ -1,0 +1,3 @@
+[submodule "libclash"]
+	path = libclash
+	url = https://github.com/Ember-Moth/libclash.git

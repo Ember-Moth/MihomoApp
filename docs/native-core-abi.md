@@ -30,6 +30,11 @@ Darwin `utun` sockets with `getsockopt(fd, SYSPROTO_CONTROL, UTUN_OPT_IFNAME,
 ...)`. This mirrors common iOS 15+ packet tunnel integrations where
 `NEPacketTunnelFlow` does not publicly expose the fd needed by Go TUN stacks.
 
+The iOS main app does not call `libclash` and does not use mihomo
+`external-controller` for normal UI control. It sends compact JSON messages to
+the Packet Tunnel extension with `NETunnelProviderSession.SendProviderMessage`.
+The extension handles those messages and calls the ABI below in-process.
+
 `libclash_force_gc` is intended for memory pressure control in the iOS Packet
 Tunnel extension. It asks the Go runtime to force GC and return free memory to
 the OS where possible.
@@ -54,6 +59,21 @@ char *libclash_validate_config(const char *config_path);
 char *libclash_setup_config(const char *setup_json);
 int libclash_start_listener(void);
 int libclash_stop_listener(void);
+void libclash_reset(void);
+long long libclash_query_traffic_now(void);
+long long libclash_query_traffic_total(void);
+int libclash_query_connection_count(void);
+void libclash_close_all_connections(void);
+int libclash_set_mode(const char *mode);
+char *libclash_query_group_names(int exclude_not_selectable);
+char *libclash_query_group(const char *name, const char *sort_mode);
+int libclash_patch_selector(const char *selector, const char *name);
+void libclash_health_check(const char *name);
+void libclash_health_check_all(void);
+int libclash_test_proxy_delay(
+    const char *name,
+    const char *test_url,
+    int timeout_milliseconds);
 int libclash_start_tun(
     int fd,
     const char *stack,
@@ -61,16 +81,75 @@ int libclash_start_tun(
     const char *dns_csv);
 void libclash_stop_tun(void);
 void libclash_force_gc(void);
+long long libclash_set_memory_limit(long long bytes);
+int libclash_set_gc_percent(int percent);
 void libclash_update_dns(const char *dns_csv);
 char *libclash_last_error(void);
 void libclash_free_string(char *value);
 ```
 
-String results returned by `libclash_validate_config` and
-`libclash_setup_config` must be allocated by the native core and released by
-`libclash_free_string`. `libclash_last_error` follows the same ownership rule.
+String results returned by `libclash_validate_config`, `libclash_setup_config`,
+`libclash_query_group_names`, `libclash_query_group`, and
+`libclash_last_error` must be allocated by the native core and released by
+`libclash_free_string`.
 
 `query_socket_uid_callback` returns the Android UID that owns the socket. On
 Android 10+ the client should call `ConnectivityManager.GetConnectionOwnerUid`.
 For older Android versions, the Go core falls back to `/proc` lookup and may not
 call this callback.
+
+On iOS Packet Tunnel, call `libclash_set_memory_limit` and
+`libclash_set_gc_percent` before loading a profile. They map to Go runtime memory
+controls and are meant to keep the native core below the tighter NetworkExtension
+memory budget. They are soft controls; the extension still runs periodic
+best-effort .NET and Go memory trimming.
+
+## iOS PacketTunnel IPC
+
+The main app sends one JSON object per request. The current request shape is:
+
+```json
+{
+  "action": "query-group",
+  "groupName": "Proxy",
+  "proxyName": "HK-01",
+  "mode": "rule",
+  "testUrl": "https://www.gstatic.com/generate_204",
+  "timeoutMilliseconds": 5000,
+  "configPath": "/path/to/config.yaml",
+  "sortMode": "Default"
+}
+```
+
+Supported actions:
+
+- `status`
+- `validate-config`
+- `query-group-names`
+- `query-group`
+- `traffic`
+- `connection-count`
+- `select-proxy`
+- `set-mode`
+- `test-proxy-delay`
+- `health-check`
+- `close-connections`
+- `force-gc`
+
+The response is also JSON:
+
+```json
+{
+  "ok": true,
+  "error": "",
+  "payload": "",
+  "longValue": 0,
+  "secondLongValue": 0,
+  "intValue": 0,
+  "boolValue": false
+}
+```
+
+`payload` carries native JSON returned by `libclash_query_group_names` and
+`libclash_query_group`. `longValue` and `secondLongValue` carry packed traffic
+snapshots for upload/download rate and totals.

@@ -1,31 +1,64 @@
 using System.Runtime;
+using System.Threading;
 using Mihomo.iOS.PacketTunnel.Interop;
 
 namespace Mihomo.iOS.PacketTunnel.Services;
 
 internal static class MemoryPressure
 {
-    public static void Trim()
+    private const long NativeCoreMemoryLimitBytes = 32L * 1024L * 1024L;
+    private const int NativeCoreGcPercent = 50;
+
+    private static int isTrimming;
+
+    public static void ConfigureNativeRuntime()
     {
         try
         {
-            GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
-            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
-            GC.WaitForPendingFinalizers();
-            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+            LibClashNative.SetMemoryLimit(NativeCoreMemoryLimitBytes);
+            LibClashNative.SetGcPercent(NativeCoreGcPercent);
         }
         catch
         {
-            // Memory trimming is best-effort in the extension process.
+            // The native core may not be linked in simulator-only diagnostics.
+        }
+    }
+
+    public static bool Trim()
+    {
+        if (Interlocked.Exchange(ref isTrimming, 1) != 0)
+        {
+            return false;
         }
 
         try
         {
-            LibClashNative.ForceGc();
+            try
+            {
+                GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+                GC.WaitForPendingFinalizers();
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+            }
+            catch
+            {
+                // Memory trimming is best-effort in the extension process.
+            }
+
+            try
+            {
+                LibClashNative.ForceGc();
+            }
+            catch
+            {
+                // The native core may not have been initialized yet.
+            }
+
+            return true;
         }
-        catch
+        finally
         {
-            // The native core may not have been initialized yet.
+            Volatile.Write(ref isTrimming, 0);
         }
     }
 }
