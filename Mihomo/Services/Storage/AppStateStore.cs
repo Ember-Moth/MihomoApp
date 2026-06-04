@@ -5,6 +5,9 @@ namespace Mihomo.Services.Storage;
 public sealed class AppStateStore
 {
     private const string SchemaVersion = "1";
+    private static readonly object ProviderGate = new();
+    private static bool providerInitialized;
+
     private readonly string _databasePath;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private bool _initialized;
@@ -332,7 +335,7 @@ public sealed class AppStateStore
                 return;
             }
 
-            SQLitePCL.Batteries_V2.Init();
+            EnsureSqliteProvider();
 
             var directory = Path.GetDirectoryName(_databasePath);
             if (!string.IsNullOrWhiteSpace(directory))
@@ -516,5 +519,25 @@ public sealed class AppStateStore
     private static string ToValue(bool value)
     {
         return value ? "1" : "0";
+    }
+
+    private static void EnsureSqliteProvider()
+    {
+        if (providerInitialized)
+        {
+            return;
+        }
+
+        lock (ProviderGate)
+        {
+            if (providerInitialized)
+            {
+                return;
+            }
+
+            SQLitePCL.raw.SetProvider(new SQLitePCL.SQLite3Provider_e_sqlite3());
+            SQLitePCL.raw.FreezeProvider();
+            providerInitialized = true;
+        }
     }
 }

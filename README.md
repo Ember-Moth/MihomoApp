@@ -26,43 +26,37 @@ See `docs/native-core-abi.md` for the expected native ABI.
 
 ## Android Build
 
-Debug build:
+本项目的 Android 开发和发布基线是项目内固定的 .NET 11 Preview 4 SDK 与
+Android NativeAOT。先准备本地 SDK/workload：
 
 ```bash
-dotnet build Mihomo.Android/Mihomo.Android.csproj
+./scripts/install-dotnet11-android-minimal.sh
 ```
 
-Release build with Android AOT:
+Debug build 用于日常编译验证：
 
 ```bash
-dotnet publish Mihomo.Android/Mihomo.Android.csproj \
-  -c Release \
-  -f net10.0-android \
+./scripts/dotnet11.sh build Mihomo.Android/Mihomo.Android.csproj \
+  -c Debug \
+  -f net11.0-android \
   -r android-arm64
 ```
 
-Release uses .NET for Android AOT through `RunAOTCompilation=true`. This is the
-supported AOT path for production Android builds.
-
-## NativeAOT
-
-.NET for Android can be published with `PublishAot=true`, but Android NativeAOT
-is currently experimental and should not be the default production build mode.
-
-Experimental command:
+Release APK 默认使用 NativeAOT：
 
 ```bash
-dotnet publish Mihomo.Android/Mihomo.Android.csproj \
-  -c Release \
-  -f net10.0-android \
-  -r android-arm64 \
-  -p:PublishAot=true \
-  -p:EnablePreviewFeatures=true
+./scripts/publish-android-nativeaot.sh
 ```
 
-Keep the normal Android AOT build as the baseline. Treat NativeAOT as a separate
-compatibility track because Avalonia, XAML loading, Android bindings, and any
-reflection-based code can surface trimming/AOT warnings.
+`MihomoEnableNativeAot` 默认值是 `true`。如需临时回退普通 .NET for Android AOT，
+可以显式传入 `-p:MihomoEnableNativeAot=false`。
+
+.NET 11 Preview 4 的 Android NativeAOT runtime pack 当前覆盖 `android-arm64`
+和 `android-x64`。脚本默认构建这两个 RID；如需只构建单个 RID，可传入：
+
+```bash
+./scripts/publish-android-nativeaot.sh android-arm64
+```
 
 ## iOS Build
 
@@ -80,9 +74,8 @@ simulator 应用。
 NetworkExtension。主 App 负责 `NETunnelProviderManager`，扩展负责扫描 `utun`
 fd 并调用 `libclash_start_tun`。
 
-iOS 支持 NativeAOT。当前只在 PacketTunnel 扩展的 Release 配置中启用
-`PublishAot=true`，主 Avalonia App 暂不强制 NativeAOT，避免 XAML/反射相关
-trim 风险先扩大到 UI 侧。
+iOS 支持 NativeAOT。当前 PacketTunnel 扩展的 Release 配置启用
+`PublishAot=true`，主 Avalonia App 随项目统一迁移到 .NET 11。
 
 PacketTunnel 扩展进程有更严格的内存压力约束。扩展启动核心后和停止核心后会
 主动触发一次 .NET GC，并通过 `libclash_force_gc` 要求 Go runtime 释放可归还

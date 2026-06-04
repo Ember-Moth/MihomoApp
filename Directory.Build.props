@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <MihomoDotNetVersion Condition="'$(MihomoDotNetVersion)' == ''">11.0</MihomoDotNetVersion>
+    <MihomoEnableNativeAot Condition="'$(MihomoEnableNativeAot)' == ''">true</MihomoEnableNativeAot>
+    <EnablePreviewFeatures Condition="'$(MihomoEnableNativeAot)' == 'true'">true</EnablePreviewFeatures>
+    <TrimmerSingleWarn Condition="'$(MihomoEnableNativeAot)' == 'true'">false</TrimmerSingleWarn>
+  </PropertyGroup>
+</Project>

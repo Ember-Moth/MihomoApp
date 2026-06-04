@@ -10,10 +10,6 @@ public partial class MainViewModel
 {
     private const string BackupStateEntryName = "app_state.json";
 
-    private sealed record BackupProfileFile(int ProfileId, string EntryName);
-
-    private sealed record BackupDocument(AppStateSnapshot State, IReadOnlyList<BackupProfileFile> ProfileFiles);
-
     public IReadOnlyList<string> AccessPackageNames => SplitPackageCsv(AccessPackageCsv);
 
     [RelayCommand]
@@ -178,7 +174,7 @@ public partial class MainViewModel
         await _stateReadyTask;
         await PersistAppStateAsync();
 
-        var profileFiles = new List<BackupProfileFile>();
+        var profileFiles = new List<AppBackupProfileFile>();
         using var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true);
 
         foreach (var profile in CaptureStoredProfiles())
@@ -196,16 +192,19 @@ public partial class MainViewModel
                 await fileStream.CopyToAsync(entryStream);
             }
 
-            profileFiles.Add(new BackupProfileFile(profile.Id, entryName));
+            profileFiles.Add(new AppBackupProfileFile(profile.Id, entryName));
         }
 
-        var document = new BackupDocument(
+        var document = new AppBackupDocument(
             CaptureAppState(CaptureStoredProfiles(), SelectedConfigProfile?.Id),
-            profileFiles);
+            profileFiles.ToArray());
         var stateEntry = archive.CreateEntry(BackupStateEntryName, CompressionLevel.Optimal);
         await using (var stateStream = stateEntry.Open())
         {
-            await JsonSerializer.SerializeAsync(stateStream, document);
+            await JsonSerializer.SerializeAsync(
+                stateStream,
+                document,
+                AppStateJsonContext.Default.AppBackupDocument);
         }
 
         LastMessage = "备份已写入";
@@ -219,10 +218,12 @@ public partial class MainViewModel
             var stateEntry = archive.GetEntry(BackupStateEntryName)
                 ?? throw new InvalidOperationException("备份文件缺少 app_state.json");
 
-            BackupDocument? document;
+            AppBackupDocument? document;
             await using (var stateStream = stateEntry.Open())
             {
-                document = await JsonSerializer.DeserializeAsync<BackupDocument>(stateStream);
+                document = await JsonSerializer.DeserializeAsync(
+                    stateStream,
+                    AppStateJsonContext.Default.AppBackupDocument);
             }
 
             if (document == null)
@@ -252,7 +253,7 @@ public partial class MainViewModel
 
     private IReadOnlyList<StoredConfigProfile> RestoreProfileFiles(
         ZipArchive archive,
-        BackupDocument document)
+        AppBackupDocument document)
     {
         var profileEntries = document.ProfileFiles.ToDictionary(
             item => item.ProfileId,

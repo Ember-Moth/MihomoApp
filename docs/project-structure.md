@@ -112,7 +112,8 @@ iOS 的 `libclash.a` 链接在 `Mihomo.iOS.PacketTunnel` 扩展进程内，P/Inv
 `getsockopt(fd, SYSPROTO_CONTROL, UTUN_OPT_IFNAME, ...)` 找到 `utun` fd，再调用
 `libclash_start_tun`。
 
-PacketTunnel 扩展 Release 配置启用 NativeAOT。内存控制由扩展进程自己做：
+Android Release APK 走 .NET 11 NativeAOT；PacketTunnel 扩展 Release 配置也启用
+NativeAOT。内存控制由扩展进程自己做：
 `MemoryPressure.Trim()` 会先触发 .NET GC/LOH compact，再调用
 `libclash_force_gc` 触发 Go runtime `debug.FreeOSMemory()`。
 
