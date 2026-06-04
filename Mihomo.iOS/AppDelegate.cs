@@ -8,14 +8,9 @@ namespace Mihomo.iOS;
 [Register("AppDelegate")]
 public sealed class AppDelegate : AvaloniaAppDelegate<global::Mihomo.App>
 {
-    public override bool FinishedLaunching(UIKit.UIApplication application, NSDictionary launchOptions)
-    {
-        IosClashRuntime.Install();
-        return base.FinishedLaunching(application, launchOptions);
-    }
-
     protected override AppBuilder CustomizeAppBuilder(AppBuilder builder)
     {
+        IosClashRuntime.Install();
         return base.CustomizeAppBuilder(builder).WithInterFont();
     }
 }

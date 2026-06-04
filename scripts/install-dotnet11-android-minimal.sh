@@ -14,6 +14,16 @@ fi
 
 mkdir -p "$nuget_cache"
 
+if [[ "${MIHOMO_ANDROID_WORKLOAD_MODE:-official}" == "official" ]]; then
+  echo "Installing Android workload through dotnet workload install."
+  if timeout 30m "$dotnet_root/dotnet" workload install android --skip-manifest-update --verbosity minimal; then
+    "$dotnet_root/dotnet" workload list
+    exit 0
+  fi
+
+  echo "Official Android workload install failed; falling back to minimal pack installation." >&2
+fi
+
 download_package() {
   local package_id="$1"
   local version="$2"
