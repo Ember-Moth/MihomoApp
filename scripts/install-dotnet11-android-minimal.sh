@@ -6,6 +6,7 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 dotnet_root="$repo_root/.dotnet"
 nuget_cache="$repo_root/.tmp/nuget"
 sdk_feature_band="11.0.100-preview.4"
+workload_set_version="11.0.100-preview.4.26261.2"
 
 if [[ ! -x "$dotnet_root/dotnet" ]]; then
   echo "Missing project-local .NET SDK: $dotnet_root/dotnet" >&2
@@ -16,7 +17,9 @@ mkdir -p "$nuget_cache"
 
 if [[ "${MIHOMO_ANDROID_WORKLOAD_MODE:-official}" == "official" ]]; then
   echo "Installing Android workload through dotnet workload install."
-  if timeout 30m "$dotnet_root/dotnet" workload install android --skip-manifest-update --verbosity minimal; then
+  if timeout 30m "$dotnet_root/dotnet" workload install android \
+    --version "$workload_set_version" \
+    --verbosity minimal; then
     "$dotnet_root/dotnet" workload list
     exit 0
   fi
@@ -103,5 +106,8 @@ fi
 
 mkdir -p "$dotnet_root/metadata/workloads/$sdk_feature_band/InstalledWorkloads"
 : > "$dotnet_root/metadata/workloads/$sdk_feature_band/InstalledWorkloads/android"
+
+mkdir -p "$dotnet_root/metadata/workloads/InstalledWorkloadSets/v1/$workload_set_version/$sdk_feature_band"
+: > "$dotnet_root/metadata/workloads/InstalledWorkloadSets/v1/$workload_set_version/$sdk_feature_band/$sdk_feature_band"
 
 echo "Installed minimal net11 Android workload marker."

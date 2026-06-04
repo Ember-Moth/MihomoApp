@@ -469,9 +469,22 @@ internal sealed class IosClashRuntime : IClashRuntime
 
     private static IReadOnlyList<NETunnelProviderManager> ToManagerList(NSArray? managers)
     {
-        return managers == null || managers.Count == 0
-            ? []
-            : NSArray.ArrayFromHandle<NETunnelProviderManager>(managers.Handle);
+        if (managers == null || managers.Count == 0)
+        {
+            return [];
+        }
+
+        var nativeManagers = NSArray.ArrayFromHandle<NETunnelProviderManager>(managers.Handle);
+        var result = new List<NETunnelProviderManager>(nativeManagers.Length);
+        foreach (var manager in nativeManagers)
+        {
+            if (manager != null)
+            {
+                result.Add(manager);
+            }
+        }
+
+        return result;
     }
 
     private static Task SaveManagerAsync(NETunnelProviderManager manager)

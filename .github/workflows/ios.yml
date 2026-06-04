@@ -93,6 +93,15 @@ jobs:
             -p:UseSharedCompilation=false \
             -nr:false
 
+      - name: Clean iOS intermediates before device build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf \
+            Mihomo.iOS/obj/Release/net11.0-ios \
+            Mihomo.iOS.PacketTunnel/obj/Release/net11.0-ios
+
       - name: Build unsigned iOS device app
         run: |
           dotnet build Mihomo.iOS/Mihomo.iOS.csproj \

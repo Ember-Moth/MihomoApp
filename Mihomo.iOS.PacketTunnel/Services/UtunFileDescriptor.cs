@@ -39,10 +39,10 @@ internal static unsafe partial class UtunFileDescriptor
     private static int FindByScanningOpenFileDescriptors()
     {
         Span<byte> prefix = stackalloc byte[] { (byte)'u', (byte)'t', (byte)'u', (byte)'n' };
+        var buffer = stackalloc byte[IfNameSize];
 
         for (var fd = 0; fd <= SearchFdLimit; fd++)
         {
-            var buffer = stackalloc byte[IfNameSize];
             for (var i = 0; i < IfNameSize; i++)
             {
                 buffer[i] = 0;
