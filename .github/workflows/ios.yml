@@ -89,6 +89,11 @@ jobs:
             -p:EnableCodeSigning=false \
             -p:CodesignKey= \
             -p:CodesignProvision= \
+            -p:MihomoEnableNativeAot=false \
+            -p:PublishAot=false \
+            -p:PublishReadyToRun=false \
+            -p:RunAOTCompilation=false \
+            -p:MtouchInterpreter=all \
             -p:UseSharedCompilation=false \
             -nr:false
 

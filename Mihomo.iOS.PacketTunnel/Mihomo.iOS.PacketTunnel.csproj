@@ -18,7 +18,7 @@
     <EnableCodeSigning>false</EnableCodeSigning>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(MihomoEnableNativeAot)' == 'true'">
     <PublishAot>true</PublishAot>
     <IsAotCompatible>true</IsAotCompatible>
     <TrimMode>full</TrimMode>
