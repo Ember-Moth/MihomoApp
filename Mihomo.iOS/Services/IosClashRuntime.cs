@@ -461,10 +461,17 @@ internal sealed class IosClashRuntime : IClashRuntime
                 return;
             }
 
-            completion.TrySetResult(managers ?? []);
+            completion.TrySetResult(ToManagerList(managers));
         });
 
         return completion.Task;
+    }
+
+    private static IReadOnlyList<NETunnelProviderManager> ToManagerList(NSArray? managers)
+    {
+        return managers == null || managers.Count == 0
+            ? []
+            : NSArray.ArrayFromHandle<NETunnelProviderManager>(managers.Handle);
     }
 
     private static Task SaveManagerAsync(NETunnelProviderManager manager)
