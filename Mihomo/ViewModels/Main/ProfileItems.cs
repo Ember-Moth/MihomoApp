@@ -43,6 +43,14 @@ public sealed partial class ConfigProfileItem : ObservableObject
 
     public bool IsUrl => Type == ConfigProfileType.Url;
 
+    public string TypeText => IsUrl ? "URL" : "File";
+
+    public string SourceText => IsUrl ? "远程订阅" : "本地文件";
+
+    public string UpdateText => string.IsNullOrWhiteSpace(LastUpdateText)
+        ? "从未更新"
+        : LastUpdateText;
+
     public string LastUpdateText
     {
         get

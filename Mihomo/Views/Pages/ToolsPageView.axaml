@@ -9,15 +9,14 @@
              x:Name="Root"
              x:Class="Mihomo.Views.Pages.ToolsPageView"
              x:DataType="vm:MainViewModel">
-    <Grid>
+    <Grid x:Name="ToolContentHost"
+          RenderTransformOrigin="0.5,0.5">
         <ScrollViewer IsVisible="{Binding IsToolsRootPage}">
             <StackPanel Margin="0,0,0,96">
                 <TextBlock Classes="sectionHeader"
                            Text="设置" />
 
-                <Button Classes="toolRow"
-                        Command="{Binding ShowToolPageCommand}"
-                        CommandParameter="language">
+                <Button Classes="toolRow">
                     <Grid ColumnDefinitions="Auto,*,Auto"
                           ColumnSpacing="14">
                         <Border Classes="leadingIcon">
@@ -42,6 +41,19 @@
                                    Foreground="{DynamicResource Brush.TextMuted}"
                                    FontSize="20" />
                     </Grid>
+                    <Button.Flyout>
+                        <MenuFlyout>
+                            <MenuItem Header="默认"
+                                      Command="{Binding SetLocaleCommand}"
+                                      CommandParameter="" />
+                            <MenuItem Header="简体中文"
+                                      Command="{Binding SetLocaleCommand}"
+                                      CommandParameter="zh-Hans" />
+                            <MenuItem Header="English"
+                                      Command="{Binding SetLocaleCommand}"
+                                      CommandParameter="en" />
+                        </MenuFlyout>
+                    </Button.Flyout>
                 </Button>
 
                 <Button Classes="toolRow"
@@ -511,18 +523,8 @@
         <Grid IsVisible="{Binding IsBasicConfigToolPage}">
             <ScrollViewer>
                 <StackPanel Margin="0,0,0,96">
-                    <Button Classes="toolRow"
-                            IsVisible="False"
-                            Command="{Binding CloseToolPageCommand}">
-                        <TextBlock Text="‹ 返回"
-                                   Foreground="{DynamicResource Brush.Accent}"
-                                   FontSize="15"
-                                   FontWeight="SemiBold" />
-                    </Button>
-                    <TextBlock Classes="sectionHeader"
-                               Text="常规" />
-                    <Border Classes="settingRow">
-                        <Grid ColumnDefinitions="Auto,*"
+                    <Button Classes="toolRow">
+                        <Grid ColumnDefinitions="Auto,*,Auto"
                               ColumnSpacing="14">
                             <Border Classes="leadingIcon">
                                 <TextBlock Text="i"
@@ -532,17 +534,43 @@
                                            FontWeight="Black" />
                             </Border>
                             <StackPanel Grid.Column="1"
-                                        Spacing="6">
+                                        Spacing="3">
                                 <TextBlock Text="日志等级"
                                            Foreground="{DynamicResource Brush.TextPrimary}"
                                            FontSize="15" />
-                                <ComboBox ItemsSource="{Binding LogLevelOptions}"
-                                          SelectedItem="{Binding LogLevel}" />
+                                <TextBlock Text="{Binding LogLevel}"
+                                           Foreground="{DynamicResource Brush.TextSecondary}"
+                                           FontSize="12" />
                             </StackPanel>
+                            <TextBlock Grid.Column="2"
+                                       Text="›"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextMuted}"
+                                       FontSize="20" />
                         </Grid>
-                    </Border>
-                    <Border Classes="settingRow">
-                        <Grid ColumnDefinitions="Auto,*"
+                        <Button.Flyout>
+                            <MenuFlyout>
+                                <MenuItem Header="debug"
+                                          Command="{Binding SetLogLevelCommand}"
+                                          CommandParameter="debug" />
+                                <MenuItem Header="info"
+                                          Command="{Binding SetLogLevelCommand}"
+                                          CommandParameter="info" />
+                                <MenuItem Header="warning"
+                                          Command="{Binding SetLogLevelCommand}"
+                                          CommandParameter="warning" />
+                                <MenuItem Header="error"
+                                          Command="{Binding SetLogLevelCommand}"
+                                          CommandParameter="error" />
+                                <MenuItem Header="silent"
+                                          Command="{Binding SetLogLevelCommand}"
+                                          CommandParameter="silent" />
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+
+                    <Button Classes="toolRow">
+                        <Grid ColumnDefinitions="Auto,*,Auto"
                               ColumnSpacing="14">
                             <Border Classes="leadingIcon">
                                 <TextBlock Text="UA"
@@ -553,15 +581,40 @@
                                            FontWeight="Black" />
                             </Border>
                             <StackPanel Grid.Column="1"
-                                        Spacing="6">
+                                        Spacing="3">
                                 <TextBlock Text="UA"
                                            Foreground="{DynamicResource Brush.TextPrimary}"
                                            FontSize="15" />
-                                <TextBox Text="{Binding GlobalUa}"
-                                         PlaceholderText="默认" />
+                                <TextBlock Text="{Binding GlobalUaText}"
+                                           Foreground="{DynamicResource Brush.TextSecondary}"
+                                           FontSize="12"
+                                           MaxLines="1"
+                                           TextTrimming="CharacterEllipsis" />
                             </StackPanel>
+                            <TextBlock Grid.Column="2"
+                                       Text="›"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextMuted}"
+                                       FontSize="20" />
                         </Grid>
-                    </Border>
+                        <Button.Flyout>
+                            <MenuFlyout>
+                                <MenuItem Header="默认"
+                                          Command="{Binding SetGlobalUaCommand}"
+                                          CommandParameter="" />
+                                <MenuItem Header="clash-verge/v2.4.2"
+                                          Command="{Binding SetGlobalUaCommand}"
+                                          CommandParameter="clash-verge/v2.4.2" />
+                                <MenuItem Header="ClashforWindows/0.19.23"
+                                          Command="{Binding SetGlobalUaCommand}"
+                                          CommandParameter="ClashforWindows/0.19.23" />
+                                <MenuItem Header="clash"
+                                          Command="{Binding SetGlobalUaCommand}"
+                                          CommandParameter="clash" />
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+
                     <Border Classes="settingRow">
                         <Grid ColumnDefinitions="Auto,*"
                               ColumnSpacing="14">
@@ -581,6 +634,7 @@
                             </StackPanel>
                         </Grid>
                     </Border>
+
                     <Border Classes="settingRow">
                         <Grid ColumnDefinitions="Auto,*"
                               ColumnSpacing="14">
@@ -600,6 +654,29 @@
                             </StackPanel>
                         </Grid>
                     </Border>
+
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="14">
+                            <Border Classes="leadingIcon">
+                                <TextBlock Text="H"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           FontWeight="Black" />
+                            </Border>
+                            <StackPanel Grid.Column="1"
+                                        Spacing="3">
+                                <TextBlock Text="Hosts"
+                                           Foreground="{DynamicResource Brush.TextPrimary}"
+                                           FontSize="15" />
+                                <TextBlock Text="使用当前配置文件中的 Hosts 映射"
+                                           Foreground="{DynamicResource Brush.TextSecondary}"
+                                           FontSize="12" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
                     <Border Classes="settingRow">
                         <CheckBox Content="IPv6"
                                   IsChecked="{Binding EnableIpv6}" />
@@ -613,12 +690,16 @@
                                   IsChecked="{Binding UnifiedDelay}" />
                     </Border>
                     <Border Classes="settingRow">
-                        <CheckBox Content="TCP 并发"
-                                  IsChecked="{Binding TcpConcurrent}" />
+                        <CheckBox Content="追加系统 DNS"
+                                  IsChecked="{Binding DnsHijacking}" />
                     </Border>
                     <Border Classes="settingRow">
                         <CheckBox Content="进程匹配"
                                   IsChecked="{Binding FindProcess}" />
+                    </Border>
+                    <Border Classes="settingRow">
+                        <CheckBox Content="TCP 并发"
+                                  IsChecked="{Binding TcpConcurrent}" />
                     </Border>
                     <Border Classes="settingRow">
                         <Grid ColumnDefinitions="Auto,*"
@@ -634,59 +715,16 @@
                                         Spacing="6">
                                 <CheckBox Content="Geo低内存模式"
                                           IsChecked="{Binding GeodataMemory}" />
-                                <TextBlock Text="开启将使用Geo低内存加载器"
+                                <TextBlock Text="开启后使用 memconservative geodata-loader"
                                            Foreground="{DynamicResource Brush.TextMuted}"
                                            FontSize="12"
                                            TextWrapping="Wrap" />
                             </StackPanel>
                         </Grid>
                     </Border>
-                    <Border Classes="settingRow">
+                    <Border Classes="settingRow last">
                         <CheckBox Content="外部控制器"
                                   IsChecked="{Binding ExternalController}" />
-                    </Border>
-
-                    <TextBlock Classes="sectionHeader"
-                               Text="VPN" />
-                    <Border Classes="settingRow">
-                        <CheckBox Content="VPN / TUN"
-                                  IsChecked="{Binding EnableTun}" />
-                    </Border>
-                    <Border Classes="settingRow">
-                        <CheckBox Content="系统代理"
-                                  IsChecked="{Binding SystemProxy}" />
-                    </Border>
-                    <Border Classes="settingRow">
-                        <CheckBox Content="DNS 劫持"
-                                  IsChecked="{Binding DnsHijacking}" />
-                    </Border>
-                    <Border Classes="settingRow">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="栈模式"
-                                       Foreground="{DynamicResource Brush.TextPrimary}"
-                                       FontSize="15" />
-                            <ComboBox ItemsSource="{Binding StackOptions}"
-                                      SelectedItem="{Binding Stack}" />
-                        </StackPanel>
-                    </Border>
-                    <Border Classes="settingRow last">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="路由地址"
-                                       Foreground="{DynamicResource Brush.TextPrimary}"
-                                       FontSize="15" />
-                            <TextBox Text="{Binding RouteAddressCsv}" />
-                            <Grid ColumnDefinitions="*,*,*"
-                                  ColumnSpacing="8">
-                                <Button Content="保存"
-                                        Command="{Binding SaveConfigCommand}" />
-                                <Button Grid.Column="1"
-                                        Content="校验"
-                                        Command="{Binding ValidateConfigCommand}" />
-                                <Button Grid.Column="2"
-                                        Content="重载"
-                                        Command="{Binding ReloadConfigCommand}" />
-                            </Grid>
-                        </StackPanel>
                     </Border>
                 </StackPanel>
             </ScrollViewer>
@@ -694,29 +732,280 @@
 
         <Grid IsVisible="{Binding IsAdvancedConfigToolPage}">
             <ScrollViewer>
-                <StackPanel Margin="16,0,16,96"
-                            Spacing="12">
-                    <Button Classes="tonal"
-                            HorizontalAlignment="Left"
-                            Content="‹ 返回"
-                            IsVisible="False"
-                            Command="{Binding CloseToolPageCommand}" />
-                    <TextBox Text="{Binding ConfigContent}"
-                             AcceptsReturn="True"
-                             TextWrapping="NoWrap"
-                             MinHeight="360"
-                             FontFamily="monospace" />
-                    <Grid ColumnDefinitions="*,*,*"
-                          ColumnSpacing="8">
-                        <Button Content="保存"
-                                Command="{Binding SaveConfigCommand}" />
-                        <Button Grid.Column="1"
-                                Content="校验"
-                                Command="{Binding ValidateConfigCommand}" />
-                        <Button Grid.Column="2"
-                                Content="重载"
-                                Command="{Binding ReloadConfigCommand}" />
-                    </Grid>
+                <StackPanel Margin="0,0,0,96">
+                    <Button Classes="toolRow"
+                            Command="{Binding ShowToolPageCommand}"
+                            CommandParameter="network">
+                        <Grid ColumnDefinitions="Auto,*,Auto"
+                              ColumnSpacing="14">
+                            <Border Classes="leadingIcon">
+                                <TextBlock Text="VPN"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           FontSize="10"
+                                           FontWeight="Black" />
+                            </Border>
+                            <StackPanel Grid.Column="1"
+                                        Spacing="3">
+                                <TextBlock Text="网络"
+                                           Foreground="{DynamicResource Brush.TextPrimary}"
+                                           FontSize="15" />
+                                <TextBlock Text="VPN、TUN、路由和栈模式"
+                                           Foreground="{DynamicResource Brush.TextSecondary}"
+                                           FontSize="12" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="2"
+                                       Text="›"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextMuted}"
+                                       FontSize="20" />
+                        </Grid>
+                    </Button>
+                    <Button Classes="toolRow"
+                            Command="{Binding ShowToolPageCommand}"
+                            CommandParameter="dns">
+                        <Grid ColumnDefinitions="Auto,*,Auto"
+                              ColumnSpacing="14">
+                            <Border Classes="leadingIcon">
+                                <TextBlock Text="DNS"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           FontSize="10"
+                                           FontWeight="Black" />
+                            </Border>
+                            <StackPanel Grid.Column="1"
+                                        Spacing="3">
+                                <TextBlock Text="DNS"
+                                           Foreground="{DynamicResource Brush.TextPrimary}"
+                                           FontSize="15" />
+                                <TextBlock Text="DNS 劫持和系统 DNS 策略"
+                                           Foreground="{DynamicResource Brush.TextSecondary}"
+                                           FontSize="12" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="2"
+                                       Text="›"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextMuted}"
+                                       FontSize="20" />
+                        </Grid>
+                    </Button>
+                    <Button Classes="toolRow"
+                            Command="{Binding ShowToolPageCommand}"
+                            CommandParameter="rules">
+                        <Grid ColumnDefinitions="Auto,*,Auto"
+                              ColumnSpacing="14">
+                            <Border Classes="leadingIcon">
+                                <TextBlock Text="☰"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           FontSize="16" />
+                            </Border>
+                            <StackPanel Grid.Column="1"
+                                        Spacing="3">
+                                <TextBlock Text="附加规则"
+                                           Foreground="{DynamicResource Brush.TextPrimary}"
+                                           FontSize="15" />
+                                <TextBlock Text="控制全局附加规则"
+                                           Foreground="{DynamicResource Brush.TextSecondary}"
+                                           FontSize="12" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="2"
+                                       Text="›"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextMuted}"
+                                       FontSize="20" />
+                        </Grid>
+                    </Button>
+                    <Button Classes="toolRow last"
+                            Command="{Binding ShowToolPageCommand}"
+                            CommandParameter="scripts">
+                        <Grid ColumnDefinitions="Auto,*,Auto"
+                              ColumnSpacing="14">
+                            <Border Classes="leadingIcon">
+                                <TextBlock Text="JS"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           FontSize="11"
+                                           FontWeight="Black" />
+                            </Border>
+                            <StackPanel Grid.Column="1"
+                                        Spacing="3">
+                                <TextBlock Text="脚本"
+                                           Foreground="{DynamicResource Brush.TextPrimary}"
+                                           FontSize="15" />
+                                <TextBlock Text="覆写脚本"
+                                           Foreground="{DynamicResource Brush.TextSecondary}"
+                                           FontSize="12" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="2"
+                                       Text="›"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextMuted}"
+                                       FontSize="20" />
+                        </Grid>
+                    </Button>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <Grid IsVisible="{Binding IsNetworkConfigToolPage}">
+            <ScrollViewer>
+                <StackPanel Margin="0,0,0,96">
+                    <Border Classes="settingRow">
+                        <CheckBox Content="VPN"
+                                  IsChecked="{Binding EnableTun}" />
+                    </Border>
+                    <TextBlock Classes="sectionHeader"
+                               Text="VPN" />
+                    <Border Classes="settingRow">
+                        <CheckBox Content="系统代理"
+                                  IsChecked="{Binding SystemProxy}" />
+                    </Border>
+                    <Border Classes="settingRow">
+                        <CheckBox Content="IPv6"
+                                  IsChecked="{Binding EnableIpv6}" />
+                    </Border>
+                    <Border Classes="settingRow">
+                        <CheckBox Content="DNS 劫持"
+                                  IsChecked="{Binding DnsHijacking}" />
+                    </Border>
+                    <TextBlock Classes="sectionHeader"
+                               Text="选项" />
+                    <Button Classes="toolRow">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="栈模式"
+                                           Foreground="{DynamicResource Brush.TextPrimary}"
+                                           FontSize="15" />
+                                <TextBlock Text="{Binding StackText}"
+                                           Foreground="{DynamicResource Brush.TextSecondary}"
+                                           FontSize="12" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="1"
+                                       Text="›"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextMuted}"
+                                       FontSize="20" />
+                        </Grid>
+                        <Button.Flyout>
+                            <MenuFlyout>
+                                <MenuItem Header="system"
+                                          Command="{Binding SetStackCommand}"
+                                          CommandParameter="system" />
+                                <MenuItem Header="gvisor"
+                                          Command="{Binding SetStackCommand}"
+                                          CommandParameter="gvisor" />
+                                <MenuItem Header="mixed"
+                                          Command="{Binding SetStackCommand}"
+                                          CommandParameter="mixed" />
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+                    <Border Classes="settingRow last">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="路由地址"
+                                       Foreground="{DynamicResource Brush.TextPrimary}"
+                                       FontSize="15" />
+                            <TextBox Text="{Binding RouteAddressCsv}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <Grid IsVisible="{Binding IsDnsConfigToolPage}">
+            <ScrollViewer>
+                <StackPanel Margin="0,0,0,96">
+                    <Border Classes="settingRow">
+                        <CheckBox Content="DNS 劫持"
+                                  IsChecked="{Binding DnsHijacking}" />
+                    </Border>
+                    <Border Classes="settingRow last">
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="14">
+                            <Border Classes="leadingIcon">
+                                <TextBlock Text="DNS"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           FontSize="10"
+                                           FontWeight="Black" />
+                            </Border>
+                            <StackPanel Grid.Column="1"
+                                        Spacing="3">
+                                <TextBlock Text="系统 DNS"
+                                           Foreground="{DynamicResource Brush.TextPrimary}"
+                                           FontSize="15" />
+                                <TextBlock Text="运行时由 Android VpnService 通知 libclash"
+                                           Foreground="{DynamicResource Brush.TextSecondary}"
+                                           FontSize="12"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <Grid IsVisible="{Binding IsRulesConfigToolPage}">
+            <ScrollViewer>
+                <StackPanel Margin="0,0,0,96">
+                    <Border Classes="settingRow">
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="路由地址"
+                                       Foreground="{DynamicResource Brush.TextPrimary}"
+                                       FontSize="15" />
+                            <TextBlock Text="{Binding RouteAddressText}"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                       FontSize="12"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="settingRow last">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="附加规则"
+                                       Foreground="{DynamicResource Brush.TextPrimary}"
+                                       FontSize="15" />
+                            <TextBlock Text="使用当前配置文件中的 rules 与运行时路由设置。"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                       FontSize="12"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <Grid IsVisible="{Binding IsScriptsConfigToolPage}">
+            <ScrollViewer>
+                <StackPanel Margin="0,0,0,96">
+                    <Border Classes="settingRow last">
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="14">
+                            <Border Classes="leadingIcon">
+                                <TextBlock Text="JS"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           FontSize="11"
+                                           FontWeight="Black" />
+                            </Border>
+                            <StackPanel Grid.Column="1"
+                                        Spacing="3">
+                                <TextBlock Text="覆写脚本"
+                                           Foreground="{DynamicResource Brush.TextPrimary}"
+                                           FontSize="15" />
+                                <TextBlock Text="使用当前配置文件中的 script 覆写内容。"
+                                           Foreground="{DynamicResource Brush.TextSecondary}"
+                                           FontSize="12"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
                 </StackPanel>
             </ScrollViewer>
         </Grid>

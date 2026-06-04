@@ -499,6 +499,7 @@ public partial class MainViewModel
 
     partial void OnMixedPortChanged(string value)
     {
+        OnPropertyChanged(nameof(MixedPortText));
         QueueConfigSettingSave();
     }
 
@@ -522,12 +523,14 @@ public partial class MainViewModel
 
     partial void OnStackChanged(string value)
     {
+        OnPropertyChanged(nameof(StackText));
         QueueStateSave();
         QueueRuntimeRestart("栈模式");
     }
 
     partial void OnRouteAddressCsvChanged(string value)
     {
+        OnPropertyChanged(nameof(RouteAddressText));
         QueueStateSave();
     }
 

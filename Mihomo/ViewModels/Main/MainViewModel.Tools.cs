@@ -27,6 +27,10 @@ public partial class MainViewModel
             "access" => "access",
             "basic" => "basic",
             "advanced" => "advanced",
+            "network" => "network",
+            "dns" => "dns",
+            "rules" => "rules",
+            "scripts" => "scripts",
             "application" => "application",
             "disclaimer" => "disclaimer",
             "about" => "about",
@@ -62,6 +66,27 @@ public partial class MainViewModel
     {
         IsDarkTheme = !string.Equals(mode, "light", StringComparison.OrdinalIgnoreCase);
         LastMessage = $"主题: {ThemeModeText}";
+    }
+
+    [RelayCommand]
+    private void SetLogLevel(string? logLevel)
+    {
+        LogLevel = NormalizeLogLevel(logLevel);
+        LastMessage = $"日志等级: {LogLevel}";
+    }
+
+    [RelayCommand]
+    private void SetGlobalUa(string? userAgent)
+    {
+        GlobalUa = userAgent?.Trim() ?? string.Empty;
+        LastMessage = string.IsNullOrWhiteSpace(GlobalUa) ? "UA: 默认" : $"UA: {GlobalUa}";
+    }
+
+    [RelayCommand]
+    private void SetStack(string? stack)
+    {
+        Stack = StackOptions.Contains(stack) ? stack! : "system";
+        LastMessage = $"栈模式: {Stack}";
     }
 
     [RelayCommand]
@@ -366,7 +391,11 @@ public partial class MainViewModel
         QueueRuntimeRestart("日志等级", needsConfigSave: true);
     }
 
-    partial void OnGlobalUaChanged(string value) => QueueConfigSettingSave();
+    partial void OnGlobalUaChanged(string value)
+    {
+        OnPropertyChanged(nameof(GlobalUaText));
+        QueueConfigSettingSave();
+    }
 
     partial void OnTestUrlChanged(string value)
     {
@@ -534,6 +563,10 @@ public partial class MainViewModel
         OnPropertyChanged(nameof(IsAccessToolPage));
         OnPropertyChanged(nameof(IsBasicConfigToolPage));
         OnPropertyChanged(nameof(IsAdvancedConfigToolPage));
+        OnPropertyChanged(nameof(IsNetworkConfigToolPage));
+        OnPropertyChanged(nameof(IsDnsConfigToolPage));
+        OnPropertyChanged(nameof(IsRulesConfigToolPage));
+        OnPropertyChanged(nameof(IsScriptsConfigToolPage));
         OnPropertyChanged(nameof(IsApplicationSettingsToolPage));
         OnPropertyChanged(nameof(IsDisclaimerToolPage));
         OnPropertyChanged(nameof(IsAboutToolPage));

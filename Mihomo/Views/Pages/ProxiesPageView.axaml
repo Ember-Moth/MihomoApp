@@ -71,7 +71,9 @@
             </Grid>
         </Border>
 
-        <ScrollViewer Grid.Row="2">
+        <ScrollViewer Grid.Row="2"
+                      x:Name="ProxyPageHost"
+                      RenderTransformOrigin="0.5,0.5">
             <StackPanel Margin="12,16,12,96"
                         Spacing="0">
                 <Border Classes="card"
@@ -105,42 +107,37 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:ProxyNodeItem">
-                            <Border Classes="proxyCard"
+                            <Button Classes="proxyCardButton"
                                     Classes.active="{Binding IsSelected}"
-                                    Margin="4">
+                                    Margin="4"
+                                    Command="{Binding DataContext.SelectProxyCommand, ElementName=Root}"
+                                    CommandParameter="{Binding}">
                                 <Grid>
-                                    <Button Classes="proxyPick"
-                                            Command="{Binding DataContext.SelectProxyCommand, ElementName=Root}"
-                                            CommandParameter="{Binding}">
-                                        <Grid RowDefinitions="*,Auto"
-                                              RowSpacing="8">
-                                            <TextBlock Text="{Binding Name}"
-                                                       Foreground="{DynamicResource Brush.TextPrimary}"
-                                                       FontSize="14"
-                                                       MaxLines="2"
-                                                       TextWrapping="Wrap"
+                                    <Grid RowDefinitions="*,Auto"
+                                          RowSpacing="8">
+                                        <TextBlock Text="{Binding Name}"
+                                                   Foreground="{DynamicResource Brush.TextPrimary}"
+                                                   FontSize="14"
+                                                   MaxLines="2"
+                                                   TextWrapping="Wrap"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <Grid Grid.Row="1"
+                                              ColumnDefinitions="*,Auto"
+                                              ColumnSpacing="8">
+                                            <TextBlock Text="{Binding TypeText}"
+                                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                                       FontSize="12"
+                                                       MaxLines="1"
                                                        TextTrimming="CharacterEllipsis" />
-                                            <Grid Grid.Row="1"
-                                                  ColumnDefinitions="*,Auto"
-                                                  ColumnSpacing="8">
-                                                <TextBlock Text="{Binding TypeText}"
-                                                           Foreground="{DynamicResource Brush.TextSecondary}"
-                                                           FontSize="12"
-                                                           MaxLines="1"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <Button Grid.Column="1"
-                                                        MinHeight="24"
-                                                        Padding="4,0"
-                                                        Background="Transparent"
-                                                        BorderBrush="Transparent"
-                                                        Content="{Binding DelayText}"
-                                                        Foreground="{DynamicResource Brush.Warning}"
-                                                        FontSize="12"
-                                                        Command="{Binding DataContext.TestProxyDelayCommand, ElementName=Root}"
-                                                        CommandParameter="{Binding}" />
-                                            </Grid>
+                                            <Border Grid.Column="1"
+                                                    Classes="delayChip"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding DelayText}"
+                                                           Foreground="{DynamicResource Brush.Warning}"
+                                                           FontSize="12" />
+                                            </Border>
                                         </Grid>
-                                    </Button>
+                                    </Grid>
 
                                     <Border Width="24"
                                             Height="24"
@@ -157,7 +154,7 @@
                                                    FontWeight="Black" />
                                     </Border>
                                 </Grid>
-                            </Border>
+                            </Button>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

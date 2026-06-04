@@ -359,6 +359,14 @@ public partial class MainViewModel : ViewModelBase
 
     public bool IsEnglishLocale => Locale == "en";
 
+    public string GlobalUaText => string.IsNullOrWhiteSpace(GlobalUa) ? "默认" : GlobalUa;
+
+    public string MixedPortText => string.IsNullOrWhiteSpace(MixedPort) ? "7890" : MixedPort;
+
+    public string StackText => string.IsNullOrWhiteSpace(Stack) ? "system" : Stack;
+
+    public string RouteAddressText => string.IsNullOrWhiteSpace(RouteAddressCsv) ? "默认" : RouteAddressCsv;
+
     public string LocaleText => string.IsNullOrWhiteSpace(Locale)
         ? "默认"
         : Locale switch
@@ -382,6 +390,14 @@ public partial class MainViewModel : ViewModelBase
 
     public bool IsAdvancedConfigToolPage => IsToolsPage && CurrentToolPage == "advanced";
 
+    public bool IsNetworkConfigToolPage => IsToolsPage && CurrentToolPage == "network";
+
+    public bool IsDnsConfigToolPage => IsToolsPage && CurrentToolPage == "dns";
+
+    public bool IsRulesConfigToolPage => IsToolsPage && CurrentToolPage == "rules";
+
+    public bool IsScriptsConfigToolPage => IsToolsPage && CurrentToolPage == "scripts";
+
     public bool IsApplicationSettingsToolPage => IsToolsPage && CurrentToolPage == "application";
 
     public bool IsDisclaimerToolPage => IsToolsPage && CurrentToolPage == "disclaimer";
@@ -396,6 +412,10 @@ public partial class MainViewModel : ViewModelBase
         "access" => "访问控制",
         "basic" => "基本配置",
         "advanced" => "进阶配置",
+        "network" => "网络",
+        "dns" => "DNS",
+        "rules" => "规则",
+        "scripts" => "脚本",
         "application" => "应用程序",
         "disclaimer" => "免责声明",
         "about" => "关于",
