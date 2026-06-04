@@ -86,6 +86,10 @@ jobs:
             -f net11.0-ios \
             -r ios-arm64 \
             -p:LibClashIosNativeArchive="$PWD/Mihomo.iOS.PacketTunnel/NativeLibraries/ios/iphoneos-arm64/libclash.a" \
+            -p:Platform=iPhone \
+            -p:MtouchSdkVersion=iphoneos \
+            -p:SdkIsSimulator=false \
+            -p:_SdkIsSimulator=false \
             -p:CodesignKey=- \
             -p:CodesignProvision= \
             -p:MihomoEnableNativeAot=false \
