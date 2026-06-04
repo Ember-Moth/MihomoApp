@@ -475,6 +475,11 @@ internal sealed class IosClashRuntime : IClashRuntime
         }
 
         var nativeManagers = NSArray.ArrayFromHandle<NETunnelProviderManager>(managers.Handle);
+        if (nativeManagers == null || nativeManagers.Length == 0)
+        {
+            return [];
+        }
+
         var result = new List<NETunnelProviderManager>(nativeManagers.Length);
         foreach (var manager in nativeManagers)
         {

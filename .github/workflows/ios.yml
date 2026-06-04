@@ -76,31 +76,8 @@ jobs:
           OUT_DIR="$PWD/Mihomo.iOS.PacketTunnel/NativeLibraries/ios" \
           bash libclash/scripts/build-carchive-ios.sh
 
-      - name: Restore simulator
-        run: dotnet restore Mihomo.iOS/Mihomo.iOS.csproj -r iossimulator-arm64
-
       - name: Restore device
         run: dotnet restore Mihomo.iOS/Mihomo.iOS.csproj -r ios-arm64
-
-      - name: Build unsigned iOS simulator app
-        run: |
-          dotnet build Mihomo.iOS/Mihomo.iOS.csproj \
-            -c Release \
-            -f net11.0-ios \
-            -r iossimulator-arm64 \
-            -p:LibClashIosNativeArchive="$PWD/Mihomo.iOS.PacketTunnel/NativeLibraries/ios/iphonesimulator/libclash.a" \
-            -p:EnableCodeSigning=false \
-            -p:UseSharedCompilation=false \
-            -nr:false
-
-      - name: Clean iOS intermediates before device build
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          rm -rf \
-            Mihomo.iOS/obj/Release/net11.0-ios \
-            Mihomo.iOS.PacketTunnel/obj/Release/net11.0-ios
 
       - name: Build unsigned iOS device app
         run: |
@@ -135,6 +112,29 @@ jobs:
           )
           shasum -a 256 artifacts/ios-unsigned/Mihomo-ios-arm64-unsigned.ipa \
             > artifacts/ios-unsigned/SHA256SUMS
+
+      - name: Clean iOS intermediates before simulator build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf \
+            Mihomo.iOS/obj/Release/net11.0-ios \
+            Mihomo.iOS.PacketTunnel/obj/Release/net11.0-ios
+
+      - name: Restore simulator
+        run: dotnet restore Mihomo.iOS/Mihomo.iOS.csproj -r iossimulator-arm64
+
+      - name: Build unsigned iOS simulator app
+        run: |
+          dotnet build Mihomo.iOS/Mihomo.iOS.csproj \
+            -c Release \
+            -f net11.0-ios \
+            -r iossimulator-arm64 \
+            -p:LibClashIosNativeArchive="$PWD/Mihomo.iOS.PacketTunnel/NativeLibraries/ios/iphonesimulator/libclash.a" \
+            -p:EnableCodeSigning=false \
+            -p:UseSharedCompilation=false \
+            -nr:false
 
       - name: Upload iOS build artifacts
         uses: actions/upload-artifact@v4
