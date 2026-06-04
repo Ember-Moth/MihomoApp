@@ -105,9 +105,19 @@ jobs:
         run: |
           set -euo pipefail
 
-          device_app="$(find Mihomo.iOS/bin/Release/net11.0-ios/ios-arm64 -type d -name '*.app' | head -n 1)"
+          device_app=""
+          while IFS= read -r app_path; do
+            case "$app_path" in
+              */net11.0-ios/ios-arm64/*.app)
+                device_app="$app_path"
+                break
+                ;;
+            esac
+          done < <(find Mihomo.iOS/bin -type d -name '*.app' 2>/dev/null | sort)
+
           if [[ -z "$device_app" ]]; then
             echo "No ios-arm64 .app bundle found" >&2
+            find Mihomo.iOS/bin -type d -name '*.app' -print 2>/dev/null || true
             exit 1
           fi
 
@@ -151,7 +161,9 @@ jobs:
           path: |
             artifacts/ios-unsigned/Mihomo-ios-arm64-unsigned.ipa
             artifacts/ios-unsigned/SHA256SUMS
+            Mihomo.iOS/bin/iPhone/Release/net11.0-ios/ios-arm64/**/*.app
             Mihomo.iOS/bin/Release/net11.0-ios/ios-arm64/**/*.app
+            Mihomo.iOS/bin/iPhoneSimulator/Release/net11.0-ios/iossimulator-arm64/**/*.app
             Mihomo.iOS/bin/Release/net11.0-ios/iossimulator-arm64/publish/**/*.app
             Mihomo.iOS/bin/Release/net11.0-ios/iossimulator-arm64/**/*.app
           if-no-files-found: warn
