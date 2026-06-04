@@ -91,6 +91,7 @@ jobs:
             -p:_SdkIsSimulator=false \
             -p:CodesignKey=- \
             -p:CodesignProvision= \
+            -p:MihomoDisableIosEntitlements=true \
             -p:MihomoEnableNativeAot=false \
             -p:PublishAot=false \
             -p:PublishReadyToRun=false \
