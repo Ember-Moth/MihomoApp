@@ -79,6 +79,11 @@ internal sealed class UnsupportedClashRuntime : IClashRuntime
         return Task.CompletedTask;
     }
 
+    public Task CloseAllConnectionsAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.CompletedTask;
+    }
+
     private void Publish(ClashStatus status)
     {
         Status = status;

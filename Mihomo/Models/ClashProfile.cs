@@ -9,4 +9,8 @@ public sealed record ClashProfile(
     bool DnsHijacking,
     bool SystemProxy,
     string Stack,
-    string RouteAddressCsv);
+    string RouteAddressCsv,
+    bool AccessControlEnabled,
+    string AccessControlMode,
+    IReadOnlyList<string> AccessPackageNames,
+    bool ExternalController);

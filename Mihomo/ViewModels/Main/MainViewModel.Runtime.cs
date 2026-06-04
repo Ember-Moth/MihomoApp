@@ -5,31 +5,30 @@ namespace Mihomo.ViewModels;
 
 public partial class MainViewModel
 {
+    [RelayCommand]
+    private async Task ToggleRunningAsync()
+    {
+        if (IsBusy || IsStarting)
+        {
+            return;
+        }
+
+        if (IsRunning)
+        {
+            await StopAsync();
+            return;
+        }
+
+        await StartAsync();
+    }
+
     [RelayCommand(CanExecute = nameof(CanStart))]
     private async Task StartAsync()
     {
         await RunAsync(async () =>
         {
             SaveConfigContent();
-
-            var profile = BuildProfile();
-            await _runtime.InitializeAsync(profile);
-
-            var validationMessage = await _runtime.ValidateConfigAsync(profile.ConfigPath);
-            if (!string.IsNullOrWhiteSpace(validationMessage))
-            {
-                LastMessage = validationMessage;
-                return;
-            }
-
-            await _runtime.StartAsync(profile);
-
-            if (IsRunning)
-            {
-                await Task.Delay(500);
-                await RefreshProxiesCoreAsync();
-                await RefreshTelemetryAsync();
-            }
+            await StartRuntimeCoreAsync();
         });
     }
 
@@ -70,6 +69,69 @@ public partial class MainViewModel
             DnsHijacking,
             SystemProxy,
             Stack.Trim(),
-            RouteAddressCsv.Trim());
+            RouteAddressCsv.Trim(),
+            AccessControlEnabled,
+            NormalizeAccessControlMode(AccessControlMode),
+            AccessPackageNames,
+            ExternalController);
+    }
+
+    private async Task StartRuntimeCoreAsync()
+    {
+        StateText = "Starting";
+        LastMessage = "正在启动核心";
+
+        try
+        {
+            var profile = BuildProfile();
+            await _runtime.InitializeAsync(profile);
+
+            var validationMessage = await _runtime.ValidateConfigAsync(profile.ConfigPath);
+            if (!string.IsNullOrWhiteSpace(validationMessage))
+            {
+                StateText = "Error";
+                IsRunning = false;
+                LastMessage = validationMessage;
+                return;
+            }
+
+            await _runtime.StartAsync(profile);
+
+            if (IsRunning)
+            {
+                await Task.Delay(500);
+                await RefreshProxiesCoreAsync();
+                await RefreshTelemetryAsync();
+            }
+            else if (StateText == "Stopped")
+            {
+                LastMessage = string.IsNullOrWhiteSpace(LastMessage) ? "核心未启动" : LastMessage;
+            }
+        }
+        catch (Exception ex)
+        {
+            StateText = "Error";
+            IsRunning = false;
+            LastMessage = ex.Message;
+        }
+    }
+
+    private async Task RefreshRuntimeUiAfterStartAsync()
+    {
+        await Task.Delay(700);
+        if (!IsRunning)
+        {
+            return;
+        }
+
+        try
+        {
+            await RefreshProxiesCoreAsync();
+            await RefreshTelemetryAsync();
+        }
+        catch
+        {
+            // Startup UI refresh is best effort; the timer keeps telemetry current.
+        }
     }
 }

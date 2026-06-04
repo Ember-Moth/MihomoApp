@@ -35,25 +35,49 @@
                                 MinHeight="36"
                                 Padding="12,6"
                                 Content="{Binding StateText}"
-                                Command="{Binding RunningActionCommand}" />
+                                Command="{Binding ToggleRunningCommand}" />
                         <Button Classes="iconButton"
                                 IsVisible="{Binding IsOverviewPage}"
                                 Content="✎" />
 
                         <Button Classes="iconButton"
                                 IsVisible="{Binding IsProxiesPage}"
-                                Content="⌕" />
+                                Content="⌕"
+                                Command="{Binding ToggleProxySearchCommand}" />
                         <Button Classes="iconButton"
                                 IsVisible="{Binding IsProxiesPage}"
-                                Content="◎" />
+                                Content="◎"
+                                Command="{Binding ShowCurrentProxyCommand}" />
                         <Button Classes="iconButton"
                                 IsVisible="{Binding IsProxiesPage}"
-                                Content="⋮" />
+                                Content="⋮">
+                            <Button.Flyout>
+                                <MenuFlyout>
+                                    <MenuItem Header="刷新"
+                                              Command="{Binding RefreshSelectedGroupCommand}" />
+                                    <MenuItem Header="延迟测试"
+                                              Command="{Binding TestSelectedGroupDelayCommand}" />
+                                    <MenuItem Header="配置顺序"
+                                              Command="{Binding SetProxySortModeCommand}"
+                                              CommandParameter="配置顺序" />
+                                    <MenuItem Header="按延迟"
+                                              Command="{Binding SetProxySortModeCommand}"
+                                              CommandParameter="按延迟" />
+                                    <MenuItem Header="按名称"
+                                              Command="{Binding SetProxySortModeCommand}"
+                                              CommandParameter="按名称" />
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
 
                         <Button Classes="iconButton"
-                                IsVisible="{Binding IsConfigPage}"
-                                Content="✓"
-                                Command="{Binding ValidateConfigCommand}" />
+                                IsVisible="{Binding IsConfigPageWithProfiles}"
+                                Content="↻"
+                                Command="{Binding SyncConfigProfilesCommand}" />
+                        <Button Classes="iconButton"
+                                IsVisible="{Binding IsConfigPageWithProfiles}"
+                                Content="⇅"
+                                Command="{Binding SortConfigProfilesCommand}" />
                     </StackPanel>
                 </Grid>
             </Border>
@@ -71,6 +95,8 @@
                     <Button Grid.Column="0"
                             Classes="nav"
                             Classes.active="{Binding IsOverviewPage}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
                             Command="{Binding ShowOverviewCommand}">
                         <StackPanel Spacing="4"
                                     HorizontalAlignment="Center">
@@ -95,6 +121,8 @@
                     <Button Grid.Column="1"
                             Classes="nav"
                             Classes.active="{Binding IsProxiesPage}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
                             Command="{Binding ShowProxiesCommand}">
                         <StackPanel Spacing="4"
                                     HorizontalAlignment="Center">
@@ -119,6 +147,8 @@
                     <Button Grid.Column="2"
                             Classes="nav"
                             Classes.active="{Binding IsConfigPage}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
                             Command="{Binding ShowConfigCommand}">
                         <StackPanel Spacing="4"
                                     HorizontalAlignment="Center">
@@ -143,6 +173,8 @@
                     <Button Grid.Column="3"
                             Classes="nav"
                             Classes.active="{Binding IsToolsPage}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
                             Command="{Binding ShowToolsCommand}">
                         <StackPanel Spacing="4"
                                     HorizontalAlignment="Center">
@@ -173,7 +205,7 @@
                 HorizontalAlignment="Right"
                 VerticalAlignment="Bottom"
                 Margin="0,0,16,92"
-                Command="{Binding RunningActionCommand}">
+                Command="{Binding ToggleRunningCommand}">
             <StackPanel Orientation="Horizontal"
                         Spacing="10"
                         VerticalAlignment="Center">
@@ -197,5 +229,24 @@
                 Margin="0,0,16,92"
                 Content="延迟测试"
                 Command="{Binding TestSelectedGroupDelayCommand}" />
+
+        <Button Classes="startFab"
+                IsVisible="{Binding IsConfigPage}"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,16,92"
+                Command="{Binding ShowAddProfilePanelCommand}">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="8"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center">
+                <TextBlock Text="+"
+                           FontSize="18"
+                           FontWeight="Black" />
+                <TextBlock Text="添加配置"
+                           FontSize="16"
+                           FontWeight="Black" />
+            </StackPanel>
+        </Button>
     </Grid>
 </UserControl>

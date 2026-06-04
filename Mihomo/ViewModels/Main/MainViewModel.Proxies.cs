@@ -21,7 +21,109 @@ public partial class MainViewModel
         }
 
         SelectedGroup = group;
+        IsProxyGroupListVisible = false;
         MarkSelectedGroup();
+    }
+
+    [RelayCommand]
+    private void ToggleProxySearch()
+    {
+        IsProxySearchVisible = !IsProxySearchVisible;
+        if (!IsProxySearchVisible)
+        {
+            ProxySearchText = string.Empty;
+        }
+    }
+
+    [RelayCommand]
+    private void ClearProxySearch()
+    {
+        ProxySearchText = string.Empty;
+        IsProxySearchVisible = false;
+    }
+
+    [RelayCommand]
+    private void ToggleProxyGroupList()
+    {
+        IsProxyGroupListVisible = !IsProxyGroupListVisible;
+    }
+
+    [RelayCommand]
+    private void HideProxyGroupList()
+    {
+        IsProxyGroupListVisible = false;
+    }
+
+    [RelayCommand]
+    private void SelectPreviousProxyGroup()
+    {
+        SelectProxyGroupByOffset(-1);
+    }
+
+    [RelayCommand]
+    private void SelectNextProxyGroup()
+    {
+        SelectProxyGroupByOffset(1);
+    }
+
+    [RelayCommand]
+    private void ShowCurrentProxy()
+    {
+        if (SelectedGroup == null || string.IsNullOrWhiteSpace(SelectedGroup.Now))
+        {
+            LastMessage = "当前策略组没有选中节点";
+            return;
+        }
+
+        ProxySearchText = SelectedGroup.Now;
+        IsProxySearchVisible = true;
+        LastMessage = $"当前节点: {SelectedGroup.Now}";
+    }
+
+    [RelayCommand]
+    private void SetProxySortMode(string? sortMode)
+    {
+        ProxySortMode = ProxySortOptions.Contains(sortMode)
+            ? sortMode!
+            : ProxySortOptions[0];
+        LastMessage = $"代理排序: {ProxySortMode}";
+    }
+
+    private void SelectProxyGroupByOffset(int offset)
+    {
+        if (ProxyGroups.Count == 0)
+        {
+            return;
+        }
+
+        var currentIndex = SelectedGroup == null ? -1 : ProxyGroups.IndexOf(SelectedGroup);
+        if (currentIndex < 0)
+        {
+            SelectedGroup = ProxyGroups[0];
+            MarkSelectedGroup();
+            return;
+        }
+
+        var nextIndex = Math.Clamp(currentIndex + offset, 0, ProxyGroups.Count - 1);
+        if (nextIndex == currentIndex)
+        {
+            return;
+        }
+
+        SelectedGroup = ProxyGroups[nextIndex];
+        MarkSelectedGroup();
+        LastMessage = $"策略组: {SelectedGroup.Name}";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRefreshProxies))]
+    private async Task RefreshSelectedGroupAsync()
+    {
+        await RunAsync(async () =>
+        {
+            await _runtime.HealthCheckAsync(SelectedGroup?.Name ?? string.Empty);
+            await RefreshProxiesCoreAsync();
+            LastMessage = SelectedGroup == null ? "策略组已刷新" : $"{SelectedGroup.Name} 已刷新";
+        });
     }
 
     [RelayCommand]
@@ -48,9 +150,15 @@ public partial class MainViewModel
                 node.IsSelected = string.Equals(node.Name, proxy.Name, StringComparison.Ordinal);
             }
 
+            if (CloseConnections)
+            {
+                await _runtime.CloseAllConnectionsAsync();
+            }
+
             LastMessage = $"{SelectedGroup.Name} -> {proxy.Name}";
             OnSelectedGroupChanged(SelectedGroup);
             await RefreshProxiesCoreAsync();
+            await RefreshNetworkDetectionAsync();
         });
     }
 

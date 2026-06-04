@@ -23,6 +23,16 @@ public class MainActivity : AvaloniaMainActivity
         RequestNotificationPermission();
     }
 
+    protected override void OnActivityResult(int requestCode, Result resultCode, global::Android.Content.Intent? data)
+    {
+        base.OnActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == AndroidClashRuntime.RequestVpnPermission)
+        {
+            AndroidClashRuntime.Current?.OnVpnPermissionResult(resultCode == Result.Ok);
+        }
+    }
+
     private void RequestNotificationPermission()
     {
         if (!OperatingSystem.IsAndroidVersionAtLeast(33))

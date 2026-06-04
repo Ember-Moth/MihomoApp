@@ -1,8 +1,10 @@
 using System.Text.Json;
 using Android.App;
 using Android.Content;
+using Android.Content.PM;
 using Android.Net;
 using Android.OS;
+using Android.Util;
 using Mihomo.Android.Interop;
 using Mihomo.Android.Vpn;
 using Mihomo.Models;
@@ -13,8 +15,13 @@ namespace Mihomo.Android.Services;
 internal sealed class AndroidClashRuntime : IClashRuntime
 {
     private const string ExternalControllerListenAt = "127.0.0.1:9090";
+    private const string Tag = "MihomoRuntime";
+    public const int RequestVpnPermission = 1000;
 
     private readonly Activity activity;
+    private ClashProfile? pendingStartProfile;
+
+    public static AndroidClashRuntime? Current { get; private set; }
 
     public event EventHandler<ClashStatus>? StatusChanged;
 
@@ -33,11 +40,13 @@ internal sealed class AndroidClashRuntime : IClashRuntime
 
     public static void Install(Activity activity)
     {
-        ClashRuntimeHost.Current = new AndroidClashRuntime(activity);
+        Current = new AndroidClashRuntime(activity);
+        ClashRuntimeHost.Current = Current;
     }
 
     public async Task InitializeAsync(ClashProfile profile, CancellationToken cancellationToken = default)
     {
+        Log.Info(Tag, $"Initialize home={profile.HomeDirectory}, config={profile.ConfigPath}, sdk={(int)Build.VERSION.SdkInt}");
         await Task.Run(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -45,35 +54,63 @@ internal sealed class AndroidClashRuntime : IClashRuntime
             EnsureConfigFile(profile);
             LibClashNative.Init(profile.HomeDirectory, (int)Build.VERSION.SdkInt);
         }, cancellationToken);
+        Log.Info(Tag, "Initialize completed");
     }
 
     public async Task<string> ValidateConfigAsync(string configPath, CancellationToken cancellationToken = default)
     {
+        Log.Info(Tag, $"Validate config={configPath}");
         if (!File.Exists(configPath))
         {
+            Log.Error(Tag, $"Config file not found: {configPath}");
             return $"Config file not found: {configPath}";
         }
 
-        return await Task.Run(() => LibClashNative.ValidateConfig(configPath), cancellationToken);
+        var message = await Task.Run(() => LibClashNative.ValidateConfig(configPath), cancellationToken);
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            Log.Info(Tag, "Validate completed: ok");
+        }
+        else
+        {
+            Log.Error(Tag, $"Validate completed: {message}");
+        }
+
+        return message;
     }
 
     public async Task StartAsync(ClashProfile profile, CancellationToken cancellationToken = default)
     {
+        await StartCoreAsync(profile, hasVpnPermission: false, cancellationToken);
+    }
+
+    private async Task StartCoreAsync(
+        ClashProfile profile,
+        bool hasVpnPermission,
+        CancellationToken cancellationToken = default)
+    {
         Publish(new ClashStatus(ClashRunState.Starting, "Starting core"));
+        Log.Info(Tag, $"Start requested. tun={profile.EnableTun}, hasVpnPermission={hasVpnPermission}");
 
         try
         {
-            if (profile.EnableTun)
+            if (profile.EnableTun && !hasVpnPermission)
             {
                 var permissionIntent = VpnService.Prepare(activity);
+                Log.Info(Tag, permissionIntent == null
+                    ? "VPN permission already granted"
+                    : "VPN permission required");
+
                 if (permissionIntent != null)
                 {
-                    activity.StartActivityForResult(permissionIntent, 1000);
-                    Publish(new ClashStatus(ClashRunState.Stopped, "VPN permission requested. Start again after approval."));
+                    pendingStartProfile = profile;
+                    activity.StartActivityForResult(permissionIntent, RequestVpnPermission);
+                    Publish(new ClashStatus(ClashRunState.Starting, "等待 VPN 授权"));
                     return;
                 }
             }
 
+            Log.Info(Tag, "Setting up libclash core");
             var setupMessage = await Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -83,25 +120,53 @@ internal sealed class AndroidClashRuntime : IClashRuntime
 
             if (!string.IsNullOrWhiteSpace(setupMessage))
             {
+                Log.Error(Tag, $"Core setup failed: {setupMessage}");
                 Publish(new ClashStatus(ClashRunState.Error, setupMessage));
                 return;
             }
 
+            Log.Info(Tag, "Starting libclash listener");
+            await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                LibClashNative.StartListener();
+            }, cancellationToken);
+
             if (profile.EnableTun)
             {
+                Log.Info(Tag, "Starting Android VPN service");
                 ClashVpnService.Start(activity, ClashVpnOptions.FromProfile(profile));
             }
 
+            Log.Info(Tag, "Core marked running");
             Publish(new ClashStatus(ClashRunState.Running, "Running", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
         }
         catch (System.OperationCanceledException)
         {
+            Log.Warn(Tag, "Start canceled");
             Publish(ClashStatus.Stopped);
         }
         catch (Exception ex)
         {
+            Log.Error(Tag, ex.ToString());
             Publish(new ClashStatus(ClashRunState.Error, ex.Message));
         }
+    }
+
+    public void OnVpnPermissionResult(bool granted)
+    {
+        var profile = pendingStartProfile;
+        pendingStartProfile = null;
+
+        if (!granted || profile == null)
+        {
+            Log.Warn(Tag, $"VPN permission denied or missing profile. granted={granted}, profile={(profile == null ? "null" : "present")}");
+            Publish(new ClashStatus(ClashRunState.Stopped, "VPN 授权已取消"));
+            return;
+        }
+
+        Log.Info(Tag, "VPN permission granted; continuing pending start");
+        _ = StartCoreAsync(profile, hasVpnPermission: true);
     }
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
@@ -271,13 +336,71 @@ internal sealed class AndroidClashRuntime : IClashRuntime
         }
     }
 
+    public async Task CloseAllConnectionsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                LibClashNative.CloseAllConnections();
+            }, cancellationToken);
+        }
+        catch
+        {
+            // Closing stale connections is best-effort after switching nodes.
+        }
+    }
+
+    public async Task<IReadOnlyList<ClashInstalledApplication>> GetInstalledApplicationsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var packageManager = activity.PackageManager;
+            if (packageManager == null)
+            {
+                return (IReadOnlyList<ClashInstalledApplication>)Array.Empty<ClashInstalledApplication>();
+            }
+
+#pragma warning disable CA1422
+#pragma warning disable CS0618
+            var packages = packageManager.GetInstalledPackages(PackageInfoFlags.MetaData | PackageInfoFlags.Permissions);
+#pragma warning restore CS0618
+#pragma warning restore CA1422
+            var selfPackage = activity.PackageName ?? string.Empty;
+
+            return packages
+                .Where(package => !string.Equals(package.PackageName, selfPackage, StringComparison.Ordinal) &&
+                    !string.Equals(package.PackageName, "android", StringComparison.Ordinal))
+                .Select(package =>
+                {
+                    var applicationInfo = package.ApplicationInfo;
+                    var packageName = package.PackageName ?? string.Empty;
+                    var label = applicationInfo?.LoadLabel(packageManager)?.ToString() ?? packageName;
+                    var isSystem = applicationInfo != null &&
+                        (applicationInfo.Flags & ApplicationInfoFlags.System) == ApplicationInfoFlags.System;
+                    var usesInternet = package.RequestedPermissions?.Contains(global::Android.Manifest.Permission.Internet) == true;
+                    return new ClashInstalledApplication(
+                        packageName,
+                        label,
+                        isSystem,
+                        usesInternet,
+                        package.LastUpdateTime);
+                })
+                .Where(application => !string.IsNullOrWhiteSpace(application.PackageName))
+                .ToArray();
+        }, cancellationToken);
+    }
+
     private static string SetupCore(ClashProfile profile)
     {
         var setupJson = JsonSerializer.Serialize(
             new LibClashSetupRequest(
                 profile.HomeDirectory,
                 profile.ConfigPath,
-                ExternalControllerListenAt,
+                profile.ExternalController ? ExternalControllerListenAt : string.Empty,
                 profile.MixedPort,
                 "https://www.gstatic.com/generate_204"),
             LibClashSetupJsonContext.Default.LibClashSetupRequest);

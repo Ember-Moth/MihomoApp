@@ -18,3 +18,10 @@ public sealed record ClashTraffic(
     long Down,
     long UpTotal,
     long DownTotal);
+
+public sealed record ClashInstalledApplication(
+    string PackageName,
+    string Label,
+    bool IsSystem,
+    bool UsesInternet,
+    long LastUpdateUnixMilliseconds);

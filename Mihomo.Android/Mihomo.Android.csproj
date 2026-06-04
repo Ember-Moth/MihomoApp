@@ -12,7 +12,7 @@
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
     <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
-    <RuntimeIdentifiers>android-arm;android-arm64;android-x64</RuntimeIdentifiers>
+    <RuntimeIdentifiers Condition="'$(RuntimeIdentifier)' == ''">android-arm;android-arm64;android-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -25,6 +25,28 @@
     <AndroidResource Include="Icon.png">
       <Link>Resources\drawable\icon.png</Link>
     </AndroidResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <AndroidNativeLibrary Remove="NativeLibraries\**\*.so" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'android-arm64'">
+    <AndroidNativeLibrary Include="NativeLibraries\arm64-v8a\libclash.so" Abi="arm64-v8a" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'android-arm'">
+    <AndroidNativeLibrary Include="NativeLibraries\armeabi-v7a\libclash.so" Abi="armeabi-v7a" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'android-x64'">
+    <AndroidNativeLibrary Include="NativeLibraries\x86_64\libclash.so" Abi="x86_64" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == ''">
+    <AndroidNativeLibrary Include="NativeLibraries\arm64-v8a\libclash.so" Abi="arm64-v8a" />
+    <AndroidNativeLibrary Include="NativeLibraries\armeabi-v7a\libclash.so" Abi="armeabi-v7a" />
+    <AndroidNativeLibrary Include="NativeLibraries\x86_64\libclash.so" Abi="x86_64" />
   </ItemGroup>
 
   <ItemGroup>

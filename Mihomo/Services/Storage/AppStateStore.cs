@@ -34,11 +34,36 @@ public sealed class AppStateStore
                 MixedPort = GetSetting(settings, "mixed_port", defaults.MixedPort),
                 EnableTun = GetBool(settings, "enable_tun", defaults.EnableTun),
                 EnableIpv6 = GetBool(settings, "enable_ipv6", defaults.EnableIpv6),
+                AllowLan = GetBool(settings, "allow_lan", defaults.AllowLan),
                 DnsHijacking = GetBool(settings, "dns_hijacking", defaults.DnsHijacking),
                 SystemProxy = GetBool(settings, "system_proxy", defaults.SystemProxy),
                 Stack = GetSetting(settings, "stack", defaults.Stack),
                 RouteAddressCsv = GetSetting(settings, "route_address_csv", defaults.RouteAddressCsv),
+                OutboundMode = GetSetting(settings, "outbound_mode", defaults.OutboundMode),
+                LogLevel = GetSetting(settings, "log_level", defaults.LogLevel),
+                GlobalUa = GetSetting(settings, "global_ua", defaults.GlobalUa),
+                TestUrl = GetSetting(settings, "test_url", defaults.TestUrl),
+                UnifiedDelay = GetBool(settings, "unified_delay", defaults.UnifiedDelay),
+                TcpConcurrent = GetBool(settings, "tcp_concurrent", defaults.TcpConcurrent),
+                FindProcess = GetBool(settings, "find_process", defaults.FindProcess),
+                GeodataMemory = GetBool(settings, "geodata_memory", defaults.GeodataMemory),
+                ExternalController = GetBool(settings, "external_controller", defaults.ExternalController),
+                Locale = GetSetting(settings, "locale", defaults.Locale),
                 IsDarkTheme = GetBool(settings, "is_dark_theme", defaults.IsDarkTheme),
+                MinimizeOnExit = GetBool(settings, "minimize_on_exit", defaults.MinimizeOnExit),
+                AutoRun = GetBool(settings, "auto_run", defaults.AutoRun),
+                Hidden = GetBool(settings, "hidden", defaults.Hidden),
+                AnimateTabs = GetBool(settings, "animate_tabs", defaults.AnimateTabs),
+                OpenLogs = GetBool(settings, "open_logs", defaults.OpenLogs),
+                CloseConnections = GetBool(settings, "close_connections", defaults.CloseConnections),
+                OnlyStatisticsProxy = GetBool(settings, "only_statistics_proxy", defaults.OnlyStatisticsProxy),
+                Crashlytics = GetBool(settings, "crashlytics", defaults.Crashlytics),
+                AutoCheckUpdates = GetBool(settings, "auto_check_updates", defaults.AutoCheckUpdates),
+                AccessControlEnabled = GetBool(settings, "access_control_enabled", defaults.AccessControlEnabled),
+                AccessControlMode = GetSetting(settings, "access_control_mode", defaults.AccessControlMode),
+                AccessPackageCsv = GetSetting(settings, "access_package_csv", defaults.AccessPackageCsv),
+                AccessFilterSystemApps = GetBool(settings, "access_filter_system_apps", defaults.AccessFilterSystemApps),
+                AccessFilterNoInternetApps = GetBool(settings, "access_filter_no_internet_apps", defaults.AccessFilterNoInternetApps),
                 CurrentProfileId = selectedProfileId ?? GetInt(settings, "current_profile_id", defaults.CurrentProfileId),
                 Profiles = profiles
             };
@@ -65,11 +90,36 @@ public sealed class AppStateStore
             await UpsertSettingAsync(connection, transaction, "mixed_port", state.MixedPort, cancellationToken);
             await UpsertSettingAsync(connection, transaction, "enable_tun", ToValue(state.EnableTun), cancellationToken);
             await UpsertSettingAsync(connection, transaction, "enable_ipv6", ToValue(state.EnableIpv6), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "allow_lan", ToValue(state.AllowLan), cancellationToken);
             await UpsertSettingAsync(connection, transaction, "dns_hijacking", ToValue(state.DnsHijacking), cancellationToken);
             await UpsertSettingAsync(connection, transaction, "system_proxy", ToValue(state.SystemProxy), cancellationToken);
             await UpsertSettingAsync(connection, transaction, "stack", state.Stack, cancellationToken);
             await UpsertSettingAsync(connection, transaction, "route_address_csv", state.RouteAddressCsv, cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "outbound_mode", state.OutboundMode, cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "log_level", state.LogLevel, cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "global_ua", state.GlobalUa, cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "test_url", state.TestUrl, cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "unified_delay", ToValue(state.UnifiedDelay), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "tcp_concurrent", ToValue(state.TcpConcurrent), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "find_process", ToValue(state.FindProcess), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "geodata_memory", ToValue(state.GeodataMemory), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "external_controller", ToValue(state.ExternalController), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "locale", state.Locale, cancellationToken);
             await UpsertSettingAsync(connection, transaction, "is_dark_theme", ToValue(state.IsDarkTheme), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "minimize_on_exit", ToValue(state.MinimizeOnExit), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "auto_run", ToValue(state.AutoRun), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "hidden", ToValue(state.Hidden), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "animate_tabs", ToValue(state.AnimateTabs), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "open_logs", ToValue(state.OpenLogs), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "close_connections", ToValue(state.CloseConnections), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "only_statistics_proxy", ToValue(state.OnlyStatisticsProxy), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "crashlytics", ToValue(state.Crashlytics), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "auto_check_updates", ToValue(state.AutoCheckUpdates), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "access_control_enabled", ToValue(state.AccessControlEnabled), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "access_control_mode", state.AccessControlMode, cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "access_package_csv", state.AccessPackageCsv, cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "access_filter_system_apps", ToValue(state.AccessFilterSystemApps), cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "access_filter_no_internet_apps", ToValue(state.AccessFilterNoInternetApps), cancellationToken);
             await UpsertSettingAsync(connection, transaction, "current_profile_id", state.CurrentProfileId?.ToString() ?? string.Empty, cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
@@ -211,6 +261,54 @@ public sealed class AppStateStore
             await command.ExecuteNonQueryAsync(cancellationToken);
 
             await UpsertSettingAsync(connection, transaction, "current_profile_id", string.Empty, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task ReplaceProfilesAsync(
+        IReadOnlyList<StoredConfigProfile> profiles,
+        int? currentProfileId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureInitializedAsync(cancellationToken);
+
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            await using var connection = await OpenConnectionAsync(cancellationToken);
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+            await using (var delete = connection.CreateCommand())
+            {
+                delete.Transaction = (SqliteTransaction)transaction;
+                delete.CommandText = "DELETE FROM profiles;";
+                await delete.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            foreach (var profile in profiles)
+            {
+                await using var insert = connection.CreateCommand();
+                insert.Transaction = (SqliteTransaction)transaction;
+                insert.CommandText =
+                    """
+                    INSERT INTO profiles (id, type, label, file_path, url, last_update_unix_ms, sort_order, selected)
+                    VALUES ($id, $type, $label, $filePath, $url, $lastUpdate, $sortOrder, $selected);
+                    """;
+                insert.Parameters.AddWithValue("$id", profile.Id);
+                AddProfileParameters(insert, profile);
+                await insert.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await UpsertSettingAsync(
+                connection,
+                transaction,
+                "current_profile_id",
+                currentProfileId?.ToString() ?? string.Empty,
+                cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
         finally

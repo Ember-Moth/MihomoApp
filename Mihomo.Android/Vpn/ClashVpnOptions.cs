@@ -11,7 +11,10 @@ internal sealed record ClashVpnOptions(
     bool DnsHijacking,
     bool SystemProxy,
     string Stack,
-    string RouteAddressCsv)
+    string RouteAddressCsv,
+    bool AccessControlEnabled,
+    string AccessControlMode,
+    string AccessPackageCsv)
 {
     private const string ExtraHomeDirectory = "homeDirectory";
     private const string ExtraConfigPath = "configPath";
@@ -21,6 +24,9 @@ internal sealed record ClashVpnOptions(
     private const string ExtraSystemProxy = "systemProxy";
     private const string ExtraStack = "stack";
     private const string ExtraRouteAddressCsv = "routeAddressCsv";
+    private const string ExtraAccessControlEnabled = "accessControlEnabled";
+    private const string ExtraAccessControlMode = "accessControlMode";
+    private const string ExtraAccessPackageCsv = "accessPackageCsv";
 
     public static ClashVpnOptions FromProfile(ClashProfile profile)
     {
@@ -32,7 +38,10 @@ internal sealed record ClashVpnOptions(
             profile.DnsHijacking,
             profile.SystemProxy,
             profile.Stack,
-            profile.RouteAddressCsv);
+            profile.RouteAddressCsv,
+            profile.AccessControlEnabled,
+            profile.AccessControlMode,
+            string.Join(',', profile.AccessPackageNames));
     }
 
     public static ClashVpnOptions FromIntent(Intent intent)
@@ -45,7 +54,10 @@ internal sealed record ClashVpnOptions(
             intent.GetBooleanExtra(ExtraDnsHijacking, true),
             intent.GetBooleanExtra(ExtraSystemProxy, false),
             intent.GetStringExtra(ExtraStack) ?? "system",
-            intent.GetStringExtra(ExtraRouteAddressCsv) ?? "0.0.0.0/0");
+            intent.GetStringExtra(ExtraRouteAddressCsv) ?? "0.0.0.0/0",
+            intent.GetBooleanExtra(ExtraAccessControlEnabled, false),
+            intent.GetStringExtra(ExtraAccessControlMode) ?? "rejectSelected",
+            intent.GetStringExtra(ExtraAccessPackageCsv) ?? string.Empty);
     }
 
     public void PutInto(Intent intent)
@@ -58,5 +70,11 @@ internal sealed record ClashVpnOptions(
         intent.PutExtra(ExtraSystemProxy, SystemProxy);
         intent.PutExtra(ExtraStack, Stack);
         intent.PutExtra(ExtraRouteAddressCsv, RouteAddressCsv);
+        intent.PutExtra(ExtraAccessControlEnabled, AccessControlEnabled);
+        intent.PutExtra(ExtraAccessControlMode, AccessControlMode);
+        intent.PutExtra(ExtraAccessPackageCsv, AccessPackageCsv);
     }
+
+    public IReadOnlyList<string> AccessPackageNames =>
+        AccessPackageCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }

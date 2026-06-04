@@ -3,6 +3,8 @@
         <Setter Property="MinHeight" Value="40" />
         <Setter Property="CornerRadius" Value="20" />
         <Setter Property="Padding" Value="14,8" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
         <Setter Property="Background" Value="{DynamicResource Brush.SurfaceRaised}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderMuted}" />
@@ -50,9 +52,13 @@
     </Style>
 
     <Style Selector="Button.nav">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
         <Setter Property="MinHeight" Value="72" />
         <Setter Property="CornerRadius" Value="0" />
         <Setter Property="Padding" Value="4,5" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
@@ -138,12 +144,100 @@
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderMuted}" />
     </Style>
 
+    <Style Selector="Button.outboundMode">
+        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="CornerRadius" Value="15" />
+        <Setter Property="Padding" Value="10,4" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+    </Style>
+
+    <Style Selector="Button.outboundMode.active">
+        <Setter Property="Background" Value="{DynamicResource Brush.AccentSurface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentSurface}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    </Style>
+
+    <Style Selector="Button.toolRow">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="MinHeight" Value="68" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderMuted}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+
+    <Style Selector="Button.toolRow.last">
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <Style Selector="Button.choice">
+        <Setter Property="MinHeight" Value="44" />
+        <Setter Property="CornerRadius" Value="22" />
+        <Setter Property="Padding" Value="14,8" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button.choice.active">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.AccentForeground}" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+    </Style>
+
+    <Style Selector="Button.listItemButton">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="MinHeight" Value="64" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+    <Style Selector="Button.listItemButton:pointerover">
+        <Setter Property="Background" Value="{DynamicResource Brush.SurfaceAlt}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
     <Style Selector="Border.card">
         <Setter Property="CornerRadius" Value="8" />
         <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderMuted}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="14" />
+    </Style>
+
+    <Style Selector="Border.profileCard">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderMuted}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="92" />
+    </Style>
+
+    <Style Selector="Border.profileCard.active">
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+    </Style>
+
+    <Style Selector="Border.profileEmptyIllustration">
+        <Setter Property="Width" Value="150" />
+        <Setter Property="Height" Value="150" />
+        <Setter Property="CornerRadius" Value="32" />
+        <Setter Property="Background" Value="{DynamicResource Brush.AccentSurface}" />
+    </Style>
+
+    <Style Selector="Border.bottomSheet">
+        <Setter Property="CornerRadius" Value="24,24,0,0" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderMuted}" />
+        <Setter Property="BorderThickness" Value="0,1,0,0" />
+        <Setter Property="Padding" Value="0,8,0,28" />
     </Style>
 
     <Style Selector="Border.dashboardCard">
@@ -170,6 +264,7 @@
     </Style>
 
     <Style Selector="Border.settingRow">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="MinHeight" Value="68" />
         <Setter Property="Padding" Value="16,10" />
         <Setter Property="Background" Value="Transparent" />
@@ -216,6 +311,20 @@
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
     </Style>
 
+    <Style Selector="Border.accessApp">
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderMuted}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="12" />
+        <Setter Property="MinHeight" Value="72" />
+    </Style>
+
+    <Style Selector="Border.accessApp.active">
+        <Setter Property="Background" Value="{DynamicResource Brush.AccentSurface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+    </Style>
+
     <Style Selector="Border.delayChip">
         <Setter Property="CornerRadius" Value="14" />
         <Setter Property="Background" Value="{DynamicResource Brush.WarningSurface}" />
@@ -242,5 +351,10 @@
     <Style Selector="CheckBox">
         <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
         <Setter Property="MinHeight" Value="40" />
+    </Style>
+
+    <Style Selector="ScrollViewer">
+        <Setter Property="VerticalScrollBarVisibility" Value="Hidden" />
+        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
     </Style>
 </Styles>

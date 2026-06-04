@@ -142,6 +142,11 @@ internal sealed class IosClashRuntime : IClashRuntime
         return Task.CompletedTask;
     }
 
+    public Task CloseAllConnectionsAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.CompletedTask;
+    }
+
     private static async Task<NETunnelProviderManager> LoadOrCreateManagerAsync()
     {
         var managers = await LoadAllManagersAsync();

@@ -18,6 +18,7 @@ public sealed class ClashVpnService : VpnService, IAndroidTunCallbacks
     public const string ActionStart = "com.embermoth.mihomo.action.START_VPN";
     public const string ActionStop = "com.embermoth.mihomo.action.STOP_VPN";
 
+    private const string Tag = nameof(ClashVpnService);
     private const int NotificationId = 1001;
     private const string NotificationChannelId = "mihomo-vpn";
     private const string Ipv4Address = "172.19.0.1";
@@ -55,12 +56,14 @@ public sealed class ClashVpnService : VpnService, IAndroidTunCallbacks
     public override void OnCreate()
     {
         base.OnCreate();
+        Log.Info(Tag, "OnCreate");
         StartVpnForeground("Mihomo VPN is starting");
         connectivityManager = GetSystemService(ConnectivityService) as ConnectivityManager;
     }
 
     public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
     {
+        Log.Info(Tag, $"OnStartCommand action={intent?.Action ?? "<null>"} startId={startId}");
         switch (intent?.Action)
         {
             case ActionStart:
@@ -70,7 +73,7 @@ public sealed class ClashVpnService : VpnService, IAndroidTunCallbacks
                 }
                 catch (Exception ex)
                 {
-                    Log.Error(nameof(ClashVpnService), ex.ToString());
+                    Log.Error(Tag, ex.ToString());
                     StopVpn();
                     return StartCommandResult.NotSticky;
                 }
@@ -86,6 +89,7 @@ public sealed class ClashVpnService : VpnService, IAndroidTunCallbacks
 
     public override void OnDestroy()
     {
+        Log.Info(Tag, "OnDestroy");
         StopActiveTun();
         base.OnDestroy();
     }
@@ -117,6 +121,7 @@ public sealed class ClashVpnService : VpnService, IAndroidTunCallbacks
 
     private void StartVpn(ClashVpnOptions options)
     {
+        Log.Info(Tag, $"StartVpn stack={options.Stack}, ipv6={options.EnableIpv6}, systemProxy={options.SystemProxy}, routes={options.RouteAddressCsv}");
         StopActiveTun();
         StartVpnForeground("Mihomo VPN is connecting");
         LibClashNative.SetAndroidCallbacks(this);
@@ -135,14 +140,26 @@ public sealed class ClashVpnService : VpnService, IAndroidTunCallbacks
             builder.AddDnsServer(Ipv6Dns);
         }
 
+        ApplyAccessControl(builder, options);
+
         if (OperatingSystem.IsAndroidVersionAtLeast(29))
         {
             builder.SetMetered(false);
+            if (options.SystemProxy)
+            {
+                var proxyInfo = ProxyInfo.BuildDirectProxy("127.0.0.1", options.MixedPort);
+                if (proxyInfo != null)
+                {
+                    builder.SetHttpProxy(proxyInfo);
+                }
+            }
         }
 
+        Log.Info(Tag, "Establishing Android VPN interface");
         tunDescriptor = builder.Establish() ?? throw new InvalidOperationException("Android rejected VPN establishment");
         var fd = tunDescriptor.DetachFd();
         tunDescriptor = null;
+        Log.Info(Tag, $"VPN interface established. fd={fd}");
 
         tunStartCancellation = new CancellationTokenSource();
         var cancellationToken = tunStartCancellation.Token;
@@ -151,19 +168,22 @@ public sealed class ClashVpnService : VpnService, IAndroidTunCallbacks
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                Log.Info(Tag, "Starting libclash TUN");
                 LibClashNative.StartTun(fd, options.Stack, TunAddressCsv(options), TunDnsCsv(options));
                 if (!cancellationToken.IsCancellationRequested)
                 {
+                    Log.Info(Tag, "libclash TUN is running");
                     StartVpnForeground("Mihomo core is running");
                 }
             }
             catch (System.OperationCanceledException)
             {
+                Log.Info(Tag, "TUN start canceled");
                 LibClashNative.StopTun();
             }
             catch (Exception ex)
             {
-                Log.Error(nameof(ClashVpnService), ex.ToString());
+                Log.Error(Tag, ex.ToString());
                 StopVpn();
             }
         }, cancellationToken);
@@ -171,6 +191,7 @@ public sealed class ClashVpnService : VpnService, IAndroidTunCallbacks
 
     private void StopVpn()
     {
+        Log.Info(Tag, "StopVpn");
         StopActiveTun();
         StopForegroundCompat();
         StopSelf();
@@ -178,6 +199,7 @@ public sealed class ClashVpnService : VpnService, IAndroidTunCallbacks
 
     private void StopActiveTun()
     {
+        Log.Info(Tag, "StopActiveTun");
         tunStartCancellation?.Cancel();
         tunStartCancellation?.Dispose();
         tunStartCancellation = null;
@@ -272,6 +294,63 @@ public sealed class ClashVpnService : VpnService, IAndroidTunCallbacks
             }
 
             builder.AddRoute(parts[0], prefix);
+        }
+    }
+
+    private void ApplyAccessControl(VpnBuilder builder, ClashVpnOptions options)
+    {
+        if (!options.AccessControlEnabled)
+        {
+            return;
+        }
+
+        var packageNames = options.AccessPackageNames
+            .Where(packageName => !string.IsNullOrWhiteSpace(packageName))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (options.AccessControlMode == "acceptSelected")
+        {
+            foreach (var packageName in packageNames.Append(PackageName ?? string.Empty))
+            {
+                TryAddAllowedApplication(builder, packageName);
+            }
+
+            return;
+        }
+
+        foreach (var packageName in packageNames.Where(packageName =>
+            !string.Equals(packageName, PackageName, StringComparison.Ordinal)))
+        {
+            TryAddDisallowedApplication(builder, packageName);
+        }
+    }
+
+    private static void TryAddAllowedApplication(VpnBuilder builder, string packageName)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(packageName))
+            {
+                builder.AddAllowedApplication(packageName);
+            }
+        }
+        catch (PackageManager.NameNotFoundException)
+        {
+        }
+    }
+
+    private static void TryAddDisallowedApplication(VpnBuilder builder, string packageName)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(packageName))
+            {
+                builder.AddDisallowedApplication(packageName);
+            }
+        }
+        catch (PackageManager.NameNotFoundException)
+        {
         }
     }
 

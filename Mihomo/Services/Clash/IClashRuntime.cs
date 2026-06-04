@@ -40,4 +40,12 @@ public interface IClashRuntime
         CancellationToken cancellationToken = default);
 
     Task HealthCheckAsync(string groupName, CancellationToken cancellationToken = default);
+
+    Task CloseAllConnectionsAsync(CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ClashInstalledApplication>> GetInstalledApplicationsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<IReadOnlyList<ClashInstalledApplication>>(Array.Empty<ClashInstalledApplication>());
+    }
 }

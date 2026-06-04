@@ -24,11 +24,36 @@ public partial class MainViewModel
                     MixedPort = state.MixedPort;
                     EnableTun = state.EnableTun;
                     EnableIpv6 = state.EnableIpv6;
+                    AllowLan = state.AllowLan;
                     DnsHijacking = state.DnsHijacking;
                     SystemProxy = state.SystemProxy;
                     Stack = state.Stack;
                     RouteAddressCsv = state.RouteAddressCsv;
+                    OutboundMode = NormalizeOutboundMode(state.OutboundMode);
+                    LogLevel = NormalizeLogLevel(state.LogLevel);
+                    GlobalUa = state.GlobalUa;
+                    TestUrl = NormalizeTestUrl(state.TestUrl);
+                    UnifiedDelay = state.UnifiedDelay;
+                    TcpConcurrent = state.TcpConcurrent;
+                    FindProcess = state.FindProcess;
+                    GeodataMemory = state.GeodataMemory;
+                    ExternalController = state.ExternalController;
+                    Locale = state.Locale;
                     IsDarkTheme = state.IsDarkTheme;
+                    MinimizeOnExit = state.MinimizeOnExit;
+                    AutoRun = state.AutoRun;
+                    Hidden = state.Hidden;
+                    AnimateTabs = state.AnimateTabs;
+                    OpenLogs = state.OpenLogs;
+                    CloseConnections = state.CloseConnections;
+                    OnlyStatisticsProxy = state.OnlyStatisticsProxy;
+                    Crashlytics = state.Crashlytics;
+                    AutoCheckUpdates = state.AutoCheckUpdates;
+                    AccessControlEnabled = state.AccessControlEnabled;
+                    AccessControlMode = NormalizeAccessControlMode(state.AccessControlMode);
+                    AccessPackageCsv = state.AccessPackageCsv;
+                    AccessFilterSystemApps = state.AccessFilterSystemApps;
+                    AccessFilterNoInternetApps = state.AccessFilterNoInternetApps;
                     ApplyConfigProfiles(state.Profiles, state.CurrentProfileId);
                     LoadConfigContent();
                     ApplyThemeMode();
@@ -102,11 +127,36 @@ public partial class MainViewModel
             MixedPort,
             EnableTun,
             EnableIpv6,
+            AllowLan,
             DnsHijacking,
             SystemProxy,
             Stack,
             RouteAddressCsv,
+            OutboundMode,
+            LogLevel,
+            GlobalUa,
+            TestUrl,
+            UnifiedDelay,
+            TcpConcurrent,
+            FindProcess,
+            GeodataMemory,
+            ExternalController,
+            Locale,
             IsDarkTheme,
+            MinimizeOnExit,
+            AutoRun,
+            Hidden,
+            AnimateTabs,
+            OpenLogs,
+            CloseConnections,
+            OnlyStatisticsProxy,
+            Crashlytics,
+            AutoCheckUpdates,
+            AccessControlEnabled,
+            AccessControlMode,
+            AccessPackageCsv,
+            AccessFilterSystemApps,
+            AccessFilterNoInternetApps,
             currentProfileId,
             profiles);
     }
@@ -179,6 +229,7 @@ public partial class MainViewModel
             }
 
             LoadConfigContent();
+            QueueRuntimeRestart("配置切换");
 
             if (_isStateLoaded && !_isApplyingStoredState)
             {
@@ -194,7 +245,9 @@ public partial class MainViewModel
     {
         OnPropertyChanged(nameof(HasConfigProfiles));
         OnPropertyChanged(nameof(MissingConfigProfiles));
+        OnPropertyChanged(nameof(IsConfigPageWithProfiles));
         SyncConfigProfilesCommand.NotifyCanExecuteChanged();
+        SortConfigProfilesCommand.NotifyCanExecuteChanged();
         DeleteSelectedProfileCommand.NotifyCanExecuteChanged();
     }
 
@@ -292,6 +345,143 @@ public partial class MainViewModel
         });
     }
 
+    [RelayCommand(CanExecute = nameof(HasConfigProfiles))]
+    private async Task SortConfigProfilesAsync()
+    {
+        await RunAsync(async () =>
+        {
+            var sortedProfiles = ConfigProfiles
+                .OrderBy(profile => profile.Label, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(profile => profile.Id)
+                .ToArray();
+
+            for (var i = 0; i < sortedProfiles.Length; i++)
+            {
+                await _stateStore.UpsertProfileAsync(ToStoredProfile(sortedProfiles[i], i));
+            }
+
+            await ReloadConfigProfilesAsync(SelectedConfigProfile?.Id);
+            LastMessage = "配置排序已保存";
+        });
+    }
+
+    [RelayCommand]
+    private void ShowAddProfilePanel()
+    {
+        IsAddProfilePanelVisible = true;
+        IsAddProfileUrlInputVisible = false;
+    }
+
+    [RelayCommand]
+    private void HideAddProfilePanel()
+    {
+        IsAddProfilePanelVisible = false;
+    }
+
+    [RelayCommand]
+    private void ShowAddProfileUrlInput()
+    {
+        IsAddProfilePanelVisible = true;
+        IsAddProfileUrlInputVisible = true;
+    }
+
+    [RelayCommand]
+    private void ShowQrCodeProfile()
+    {
+        LastMessage = "二维码扫描暂未接入，请使用 URL 或文件导入";
+        IsAddProfilePanelVisible = true;
+        IsAddProfileUrlInputVisible = false;
+    }
+
+    [RelayCommand]
+    private void SelectConfigProfile(ConfigProfileItem? profile)
+    {
+        if (profile != null)
+        {
+            SelectedConfigProfile = profile;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SyncConfigProfileAsync(ConfigProfileItem? profile)
+    {
+        if (profile?.IsUrl != true)
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            SubscriptionUrl = profile.Url;
+            ConfigPath = profile.FilePath;
+            await ImportSubscriptionCoreAsync(profile.Url, profile.Label);
+        });
+    }
+
+    [RelayCommand]
+    private async Task DeleteConfigProfileAsync(ConfigProfileItem? profile)
+    {
+        if (profile == null)
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            await _stateStore.DeleteProfileAsync(profile.Id);
+            await ReloadConfigProfilesAsync(null);
+            LastMessage = "配置已删除";
+        });
+    }
+
+    [RelayCommand]
+    private void PreviewConfigProfile(ConfigProfileItem? profile)
+    {
+        if (profile == null)
+        {
+            return;
+        }
+
+        SelectedConfigProfile = profile;
+        LoadConfigContent();
+        LastMessage = $"已载入预览: {profile.Label}";
+    }
+
+    [RelayCommand]
+    private void EditConfigProfile(ConfigProfileItem? profile)
+    {
+        if (profile == null)
+        {
+            return;
+        }
+
+        SelectedConfigProfile = profile;
+        CurrentPage = "tools";
+        CurrentToolPage = "advanced";
+        LastMessage = $"编辑: {profile.Label}";
+    }
+
+    [RelayCommand]
+    private async Task ImportProfileFileAsync(PickedProfileFile? file)
+    {
+        if (file == null || string.IsNullOrWhiteSpace(file.Content))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            var label = ProfileLabelFromPath(file.Name);
+            ConfigPath = BuildManagedProfilePath(label);
+            ConfigContent = file.Content;
+            SaveConfigContent();
+            await UpsertCurrentProfileAsync(ConfigProfileType.File, label, string.Empty);
+            IsAddProfilePanelVisible = false;
+            LastMessage = "配置文件已导入";
+            await ApplyRunningRuntimeRestartAsync("配置文件", needsConfigSave: false);
+        });
+    }
+
     partial void OnHomeDirectoryChanged(string value)
     {
         QueueStateSave();
@@ -309,27 +499,31 @@ public partial class MainViewModel
 
     partial void OnMixedPortChanged(string value)
     {
-        QueueStateSave();
+        QueueConfigSettingSave();
     }
 
     partial void OnEnableTunChanged(bool value)
     {
         QueueStateSave();
+        QueueRuntimeRestart("VPN/TUN");
     }
 
     partial void OnDnsHijackingChanged(bool value)
     {
         QueueStateSave();
+        QueueRuntimeRestart("DNS 劫持");
     }
 
     partial void OnSystemProxyChanged(bool value)
     {
         QueueStateSave();
+        QueueRuntimeRestart("系统代理");
     }
 
     partial void OnStackChanged(string value)
     {
         QueueStateSave();
+        QueueRuntimeRestart("栈模式");
     }
 
     partial void OnRouteAddressCsvChanged(string value)
@@ -351,5 +545,23 @@ public partial class MainViewModel
         }
 
         return "URL";
+    }
+
+    private string BuildManagedProfilePath(string label)
+    {
+        var directory = Path.Combine(HomeDirectory, "profiles");
+        var fileName = $"{SanitizeProfileFileName(label)}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.yaml";
+        return Path.Combine(directory, fileName);
+    }
+
+    private static string SanitizeProfileFileName(string value)
+    {
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var chars = value
+            .Trim()
+            .Select(c => invalidChars.Contains(c) || char.IsWhiteSpace(c) ? '-' : c)
+            .ToArray();
+        var result = new string(chars).Trim('-');
+        return string.IsNullOrWhiteSpace(result) ? "profile" : result;
     }
 }

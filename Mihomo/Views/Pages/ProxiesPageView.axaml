@@ -9,13 +9,13 @@
              x:Name="Root"
              x:Class="Mihomo.Views.Pages.ProxiesPageView"
              x:DataType="vm:MainViewModel">
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,Auto,*">
         <Border Grid.Row="0"
                 Background="{DynamicResource Brush.PageBackground}"
                 BorderBrush="{DynamicResource Brush.BorderMuted}"
                 BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="*,Auto">
-                <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                               VerticalScrollBarVisibility="Disabled">
                     <ItemsControl ItemsSource="{Binding ProxyGroups}">
                         <ItemsControl.ItemsPanel>
@@ -49,11 +49,29 @@
                 <Button Grid.Column="1"
                         Classes="iconButton"
                         Margin="2,4,8,4"
-                        Content="⌄" />
+                        Content="⌄"
+                        Command="{Binding ToggleProxyGroupListCommand}" />
             </Grid>
         </Border>
 
-        <ScrollViewer Grid.Row="1">
+        <Border Grid.Row="1"
+                IsVisible="{Binding IsProxySearchVisible}"
+                Padding="16,10"
+                Background="{DynamicResource Brush.PageBackground}"
+                BorderBrush="{DynamicResource Brush.BorderMuted}"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="8">
+                <TextBox Text="{Binding ProxySearchText}"
+                         PlaceholderText="搜索节点" />
+                <Button Grid.Column="1"
+                        Classes="iconButton"
+                        Content="×"
+                        Command="{Binding ClearProxySearchCommand}" />
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="2">
             <StackPanel Margin="16,16,16,96"
                         Spacing="0">
                 <Border Classes="card"
@@ -146,5 +164,70 @@
                 </ItemsControl>
             </StackPanel>
         </ScrollViewer>
+
+        <Border Grid.RowSpan="3"
+                IsVisible="{Binding IsProxyGroupListVisible}"
+                Background="#99000000">
+            <Grid RowDefinitions="*,Auto">
+                <Button Background="Transparent"
+                        BorderBrush="Transparent"
+                        Command="{Binding HideProxyGroupListCommand}" />
+                <Border Grid.Row="1"
+                        Classes="bottomSheet">
+                    <StackPanel>
+                        <Grid Height="48"
+                              ColumnDefinitions="48,*,48">
+                            <TextBlock Grid.Column="1"
+                                       Text="策略组"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextPrimary}"
+                                       FontSize="18"
+                                       FontWeight="SemiBold" />
+                            <Button Grid.Column="2"
+                                    Classes="iconButton"
+                                    Content="×"
+                                    Command="{Binding HideProxyGroupListCommand}" />
+                        </Grid>
+                        <ScrollViewer MaxHeight="420">
+                            <ItemsControl ItemsSource="{Binding ProxyGroups}"
+                                          Margin="0,0,0,28">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ProxyGroupItem">
+                                        <Button Classes="toolRow"
+                                                Command="{Binding #Root.DataContext.SelectGroupCommand}"
+                                                CommandParameter="{Binding}">
+                                            <Grid ColumnDefinitions="*,Auto"
+                                                  ColumnSpacing="12">
+                                                <StackPanel Spacing="4">
+                                                    <TextBlock Text="{Binding Name}"
+                                                               Foreground="{DynamicResource Brush.TextPrimary}"
+                                                               FontSize="15"
+                                                               FontWeight="SemiBold"
+                                                               MaxLines="1"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Summary}"
+                                                               Foreground="{DynamicResource Brush.TextSecondary}"
+                                                               FontSize="12"
+                                                               MaxLines="1"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="✓"
+                                                           IsVisible="{Binding IsSelected}"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource Brush.Accent}"
+                                                           FontSize="18"
+                                                           FontWeight="Black" />
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

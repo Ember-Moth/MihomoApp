@@ -87,17 +87,22 @@
                         </StackPanel>
                         <StackPanel Grid.Row="1"
                                     VerticalAlignment="Bottom"
-                                    Spacing="6">
-                            <TextBlock Text="Rule"
-                                       Foreground="{DynamicResource Brush.TextPrimary}"
-                                       FontSize="15"
-                                       FontWeight="SemiBold" />
-                            <TextBlock Text="Global"
-                                       Foreground="{DynamicResource Brush.TextSecondary}"
-                                       FontSize="13" />
-                            <TextBlock Text="Direct"
-                                       Foreground="{DynamicResource Brush.TextSecondary}"
-                                       FontSize="13" />
+                                    Spacing="4">
+                            <Button Classes="outboundMode"
+                                    Classes.active="{Binding IsRuleMode}"
+                                    Content="Rule"
+                                    Command="{Binding ChangeOutboundModeCommand}"
+                                    CommandParameter="rule" />
+                            <Button Classes="outboundMode"
+                                    Classes.active="{Binding IsGlobalMode}"
+                                    Content="Global"
+                                    Command="{Binding ChangeOutboundModeCommand}"
+                                    CommandParameter="global" />
+                            <Button Classes="outboundMode"
+                                    Classes.active="{Binding IsDirectMode}"
+                                    Content="Direct"
+                                    Command="{Binding ChangeOutboundModeCommand}"
+                                    CommandParameter="direct" />
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -201,7 +206,8 @@
                                    VerticalAlignment="Bottom"
                                    Foreground="{DynamicResource Brush.TextPrimary}"
                                    FontSize="17"
-                                   FontWeight="SemiBold" />
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap" />
                     </Grid>
                 </Border>
             </Grid>

@@ -16,6 +16,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly HttpClient _httpClient = new();
     private readonly DispatcherTimer _telemetryTimer;
     private readonly DispatcherTimer _stateSaveTimer;
+    private readonly DispatcherTimer _runtimeRestartTimer;
     private readonly AppStateStore _stateStore;
     private readonly Task _stateReadyTask;
     private bool _isRefreshingTelemetry;
@@ -24,6 +25,8 @@ public partial class MainViewModel : ViewModelBase
     private bool _isPersistingState;
     private bool _isStateLoaded;
     private DateTimeOffset? _startedAt;
+    private string _pendingRuntimeRestartReason = string.Empty;
+    private bool _pendingRuntimeRestartNeedsConfigSave;
     private readonly Queue<double> _uploadSpeedSampleBuffer = new();
     private readonly Queue<double> _downloadSpeedSampleBuffer = new();
 
@@ -51,6 +54,16 @@ public partial class MainViewModel : ViewModelBase
             await PersistAppStateAsync();
         };
 
+        _runtimeRestartTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(700)
+        };
+        _runtimeRestartTimer.Tick += async (_, _) =>
+        {
+            _runtimeRestartTimer.Stop();
+            await RestartRuntimeForPendingChangeAsync();
+        };
+
         ApplyStatus(_runtime.Status);
         LoadConfigContent();
         ApplyThemeMode();
@@ -67,7 +80,19 @@ public partial class MainViewModel : ViewModelBase
 
     public ObservableCollection<ConfigProfileItem> ConfigProfiles { get; } = [];
 
+    public ObservableCollection<InstalledApplicationItem> InstalledApplications { get; } = [];
+
+    public ObservableCollection<InstalledApplicationItem> VisibleInstalledApplications { get; } = [];
+
     public IReadOnlyList<string> ProxySortOptions { get; } = ["配置顺序", "按延迟", "按名称"];
+
+    public IReadOnlyList<string> OutboundModeOptions { get; } = ["rule", "global", "direct"];
+
+    public IReadOnlyList<string> LogLevelOptions { get; } = ["debug", "info", "warning", "error", "silent"];
+
+    public IReadOnlyList<string> LocaleOptions { get; } = ["", "zh-Hans", "en"];
+
+    public IReadOnlyList<string> AccessControlModeOptions { get; } = ["rejectSelected", "acceptSelected"];
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartCommand))]
@@ -78,6 +103,7 @@ public partial class MainViewModel : ViewModelBase
     [NotifyCanExecuteChangedFor(nameof(ResetConfigCommand))]
     [NotifyCanExecuteChangedFor(nameof(ImportSubscriptionCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshProxiesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshSelectedGroupCommand))]
     [NotifyCanExecuteChangedFor(nameof(TestSelectedGroupDelayCommand))]
     [NotifyCanExecuteChangedFor(nameof(TestProxyDelayCommand))]
     private bool _isBusy;
@@ -86,6 +112,7 @@ public partial class MainViewModel : ViewModelBase
     [NotifyCanExecuteChangedFor(nameof(StartCommand))]
     [NotifyCanExecuteChangedFor(nameof(StopCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshProxiesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshSelectedGroupCommand))]
     [NotifyCanExecuteChangedFor(nameof(TestSelectedGroupDelayCommand))]
     [NotifyCanExecuteChangedFor(nameof(TestProxyDelayCommand))]
     private bool _isRunning;
@@ -118,6 +145,9 @@ public partial class MainViewModel : ViewModelBase
     private bool _enableIpv6;
 
     [ObservableProperty]
+    private bool _allowLan;
+
+    [ObservableProperty]
     private bool _dnsHijacking = true;
 
     [ObservableProperty]
@@ -128,6 +158,33 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _routeAddressCsv = "0.0.0.0/0";
+
+    [ObservableProperty]
+    private string _outboundMode = "rule";
+
+    [ObservableProperty]
+    private string _logLevel = "info";
+
+    [ObservableProperty]
+    private string _globalUa = string.Empty;
+
+    [ObservableProperty]
+    private string _testUrl = "https://www.gstatic.com/generate_204";
+
+    [ObservableProperty]
+    private bool _unifiedDelay = true;
+
+    [ObservableProperty]
+    private bool _tcpConcurrent;
+
+    [ObservableProperty]
+    private bool _findProcess = true;
+
+    [ObservableProperty]
+    private bool _geodataMemory = true;
+
+    [ObservableProperty]
+    private bool _externalController = true;
 
     [ObservableProperty]
     private string _configContent = string.Empty;
@@ -144,6 +201,12 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _proxySortMode = "配置顺序";
+
+    [ObservableProperty]
+    private bool _isProxySearchVisible;
+
+    [ObservableProperty]
+    private bool _isProxyGroupListVisible;
 
     [ObservableProperty]
     private bool _isTestingGroupDelay;
@@ -187,6 +250,66 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isDarkTheme = true;
 
+    [ObservableProperty]
+    private string _locale = string.Empty;
+
+    [ObservableProperty]
+    private bool _minimizeOnExit;
+
+    [ObservableProperty]
+    private bool _autoRun;
+
+    [ObservableProperty]
+    private bool _hidden;
+
+    [ObservableProperty]
+    private bool _animateTabs = true;
+
+    [ObservableProperty]
+    private bool _openLogs = true;
+
+    [ObservableProperty]
+    private bool _closeConnections = true;
+
+    [ObservableProperty]
+    private bool _onlyStatisticsProxy;
+
+    [ObservableProperty]
+    private bool _crashlytics;
+
+    [ObservableProperty]
+    private bool _autoCheckUpdates = true;
+
+    [ObservableProperty]
+    private bool _accessControlEnabled;
+
+    [ObservableProperty]
+    private string _accessControlMode = "rejectSelected";
+
+    [ObservableProperty]
+    private string _accessPackageCsv = string.Empty;
+
+    [ObservableProperty]
+    private bool _accessFilterSystemApps = true;
+
+    [ObservableProperty]
+    private bool _accessFilterNoInternetApps = true;
+
+    [ObservableProperty]
+    private string _accessSearchText = string.Empty;
+
+    [ObservableProperty]
+    private bool _isLoadingApplications;
+
+    [ObservableProperty]
+    private string _currentToolPage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isAddProfilePanelVisible;
+
+    [ObservableProperty]
+    private bool _isAddProfileUrlInputVisible;
+
     public bool IsOverviewPage => CurrentPage == "overview";
 
     public bool IsProfilesPage => CurrentPage == "profiles";
@@ -196,6 +319,10 @@ public partial class MainViewModel : ViewModelBase
     public bool IsConfigPage => CurrentPage == "config";
 
     public bool IsToolsPage => CurrentPage == "tools";
+
+    public bool IsConfigPageWithProfiles => IsConfigPage && HasConfigProfiles;
+
+    public bool IsAddProfileMenuVisible => IsAddProfilePanelVisible && !IsAddProfileUrlInputVisible;
 
     public string PublicIpCountryMark => CountryCodeToEmoji(PublicIpCountryCode);
 
@@ -207,12 +334,77 @@ public partial class MainViewModel : ViewModelBase
 
     public string ThemeModeText => IsDarkTheme ? "深色" : "浅色";
 
+    public bool IsLightTheme => !IsDarkTheme;
+
+    public bool IsDefaultLocale => string.IsNullOrWhiteSpace(Locale);
+
+    public bool IsChineseLocale => Locale == "zh-Hans";
+
+    public bool IsEnglishLocale => Locale == "en";
+
+    public string LocaleText => string.IsNullOrWhiteSpace(Locale)
+        ? "默认"
+        : Locale switch
+        {
+            "zh-Hans" => "简体中文",
+            "en" => "English",
+            _ => Locale
+        };
+
+    public bool IsToolsRootPage => IsToolsPage && string.IsNullOrWhiteSpace(CurrentToolPage);
+
+    public bool IsLanguageToolPage => IsToolsPage && CurrentToolPage == "language";
+
+    public bool IsThemeToolPage => IsToolsPage && CurrentToolPage == "theme";
+
+    public bool IsBackupToolPage => IsToolsPage && CurrentToolPage == "backup";
+
+    public bool IsAccessToolPage => IsToolsPage && CurrentToolPage == "access";
+
+    public bool IsBasicConfigToolPage => IsToolsPage && CurrentToolPage == "basic";
+
+    public bool IsAdvancedConfigToolPage => IsToolsPage && CurrentToolPage == "advanced";
+
+    public bool IsApplicationSettingsToolPage => IsToolsPage && CurrentToolPage == "application";
+
+    public bool IsDisclaimerToolPage => IsToolsPage && CurrentToolPage == "disclaimer";
+
+    public bool IsAboutToolPage => IsToolsPage && CurrentToolPage == "about";
+
+    public string ToolPageTitle => CurrentToolPage switch
+    {
+        "language" => "语言",
+        "theme" => "主题",
+        "backup" => "备份和恢复",
+        "access" => "访问控制",
+        "basic" => "基础配置",
+        "advanced" => "高级配置",
+        "application" => "应用设置",
+        "disclaimer" => "免责声明",
+        "about" => "关于",
+        _ => "工具"
+    };
+
+    public string AccessControlModeText => AccessControlMode == "acceptSelected"
+        ? "仅允许选中应用"
+        : "排除选中应用";
+
+    public bool IsRejectSelectedAccessMode => AccessControlMode != "acceptSelected";
+
+    public bool IsAcceptSelectedAccessMode => AccessControlMode == "acceptSelected";
+
+    public int AccessSelectedCount => AccessPackageNames.Count;
+
+    public bool HasVisibleInstalledApplications => VisibleInstalledApplications.Count > 0;
+
+    public bool MissingVisibleInstalledApplications => VisibleInstalledApplications.Count == 0;
+
     public string PageTitle => CurrentPage switch
     {
         "profiles" => "订阅",
         "proxies" => "代理",
-        "config" => "基本配置",
-        "tools" => "工具",
+        "config" => "配置",
+        "tools" => ToolPageTitle,
         _ => "仪表盘"
     };
 
@@ -220,16 +412,21 @@ public partial class MainViewModel : ViewModelBase
     {
         "profiles" => "远程配置与本地文件",
         "proxies" => ProxySummary,
-        "config" => "运行参数和 config.yaml",
-        "tools" => "工具和订阅",
+        "config" => "订阅和本地配置文件",
+        "tools" => string.IsNullOrWhiteSpace(CurrentToolPage) ? "工具和设置" : "FlClash 风格设置页",
         _ => RunningStateText
     };
 
-    public string RunningActionText => IsRunning ? "停止" : "启动";
+    public string RunningActionText => IsBusy || IsStarting ? "处理中" : IsRunning ? "停止" : "启动";
 
     public IAsyncRelayCommand RunningActionCommand => IsRunning ? StopCommand : StartCommand;
 
-    public string RunningStateText => IsRunning ? $"已运行 {RunningDuration}" : "未启动";
+    public string RunningStateText => StateText switch
+    {
+        nameof(ClashRunState.Starting) => "正在启动",
+        nameof(ClashRunState.Error) => "启动失败",
+        _ => IsRunning ? $"已运行 {RunningDuration}" : "未启动"
+    };
 
     public string ProxySummary => ProxyGroups.Count == 0 ? "无策略组" : $"{ProxyGroups.Count} 个策略组";
 
@@ -259,7 +456,28 @@ public partial class MainViewModel : ViewModelBase
 
     public string ProxyDelayTestUrl => SelectedGroup?.TestUrl is { Length: > 0 } value
         ? value
-        : "https://www.gstatic.com/generate_204";
+        : TestUrl;
+
+    public string OutboundModeTitle => OutboundMode switch
+    {
+        "global" => "Global",
+        "direct" => "Direct",
+        _ => "Rule"
+    };
+
+    public bool IsRuleMode => OutboundMode == "rule";
+
+    public bool IsGlobalMode => OutboundMode == "global";
+
+    public bool IsDirectMode => OutboundMode == "direct";
+
+    public bool IsProxySortDefault => ProxySortMode == "配置顺序";
+
+    public bool IsProxySortByDelay => ProxySortMode == "按延迟";
+
+    public bool IsProxySortByName => ProxySortMode == "按名称";
+
+    public bool IsStarting => StateText == ClashRunState.Starting.ToString();
 
     partial void OnCurrentPageChanged(string value)
     {
@@ -268,8 +486,10 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsProxiesPage));
         OnPropertyChanged(nameof(IsConfigPage));
         OnPropertyChanged(nameof(IsToolsPage));
+        OnPropertyChanged(nameof(IsConfigPageWithProfiles));
         OnPropertyChanged(nameof(PageTitle));
         OnPropertyChanged(nameof(PageSubtitle));
+        NotifyToolPageProperties();
     }
 
     partial void OnIsRunningChanged(bool value)
@@ -284,6 +504,7 @@ public partial class MainViewModel : ViewModelBase
             UpdateRunningDuration();
             _telemetryTimer.Start();
             _ = RefreshNetworkDetectionAsync();
+            _ = RefreshRuntimeUiAfterStartAsync();
         }
         else
         {
@@ -293,10 +514,25 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
+    partial void OnIsBusyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(RunningActionText));
+    }
+
+    partial void OnStateTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsStarting));
+        OnPropertyChanged(nameof(RunningActionText));
+        OnPropertyChanged(nameof(RunningStateText));
+        StartCommand.NotifyCanExecuteChanged();
+        StopCommand.NotifyCanExecuteChanged();
+    }
+
     partial void OnEnableIpv6Changed(bool value)
     {
         OnPropertyChanged(nameof(VpnIntranetAddress));
-        QueueStateSave();
+        QueueConfigSettingSave();
+        QueueRuntimeRestart("IPv6", needsConfigSave: true);
     }
 
     partial void OnIsNetworkDetectionLoadingChanged(bool value)
@@ -318,6 +554,16 @@ public partial class MainViewModel : ViewModelBase
     {
         ApplyThemeMode();
         OnPropertyChanged(nameof(ThemeModeText));
+        OnPropertyChanged(nameof(IsLightTheme));
+        QueueStateSave();
+    }
+
+    partial void OnLocaleChanged(string value)
+    {
+        OnPropertyChanged(nameof(LocaleText));
+        OnPropertyChanged(nameof(IsDefaultLocale));
+        OnPropertyChanged(nameof(IsChineseLocale));
+        OnPropertyChanged(nameof(IsEnglishLocale));
         QueueStateSave();
     }
 
@@ -346,11 +592,45 @@ public partial class MainViewModel : ViewModelBase
     partial void OnProxySortModeChanged(string value)
     {
         UpdateVisibleProxyNodes();
+        OnPropertyChanged(nameof(IsProxySortDefault));
+        OnPropertyChanged(nameof(IsProxySortByDelay));
+        OnPropertyChanged(nameof(IsProxySortByName));
+    }
+
+    partial void OnOutboundModeChanged(string value)
+    {
+        OnPropertyChanged(nameof(OutboundModeTitle));
+        OnPropertyChanged(nameof(IsRuleMode));
+        OnPropertyChanged(nameof(IsGlobalMode));
+        OnPropertyChanged(nameof(IsDirectMode));
+        QueueStateSave();
+    }
+
+    partial void OnCurrentToolPageChanged(string value)
+    {
+        NotifyToolPageProperties();
+        OnPropertyChanged(nameof(PageTitle));
+        OnPropertyChanged(nameof(PageSubtitle));
     }
 
     partial void OnSelectedConfigProfileChanged(ConfigProfileItem? value)
     {
         ApplySelectedConfigProfile(value);
+    }
+
+    partial void OnIsAddProfilePanelVisibleChanged(bool value)
+    {
+        if (!value)
+        {
+            IsAddProfileUrlInputVisible = false;
+        }
+
+        OnPropertyChanged(nameof(IsAddProfileMenuVisible));
+    }
+
+    partial void OnIsAddProfileUrlInputVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAddProfileMenuVisible));
     }
 
     [RelayCommand]
@@ -389,9 +669,68 @@ public partial class MainViewModel : ViewModelBase
         IsDarkTheme = !IsDarkTheme;
     }
 
+    private void QueueRuntimeRestart(string reason, bool needsConfigSave = false)
+    {
+        if (_isApplyingStoredState || !_isStateLoaded)
+        {
+            return;
+        }
+
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => QueueRuntimeRestart(reason, needsConfigSave));
+            return;
+        }
+
+        if (!IsRunning)
+        {
+            LastMessage = $"{reason} 已保存";
+            return;
+        }
+
+        _pendingRuntimeRestartReason = reason;
+        _pendingRuntimeRestartNeedsConfigSave |= needsConfigSave;
+        _runtimeRestartTimer.Stop();
+        _runtimeRestartTimer.Start();
+    }
+
+    private async Task RestartRuntimeForPendingChangeAsync()
+    {
+        var reason = string.IsNullOrWhiteSpace(_pendingRuntimeRestartReason)
+            ? "运行设置"
+            : _pendingRuntimeRestartReason;
+        var needsConfigSave = _pendingRuntimeRestartNeedsConfigSave;
+        _pendingRuntimeRestartReason = string.Empty;
+        _pendingRuntimeRestartNeedsConfigSave = false;
+
+        await RunAsync(async () =>
+        {
+            await ApplyRunningRuntimeRestartAsync(reason, needsConfigSave);
+        });
+    }
+
+    private async Task ApplyRunningRuntimeRestartAsync(string reason, bool needsConfigSave)
+    {
+        if (needsConfigSave)
+        {
+            SaveConfigContent();
+        }
+
+        await PersistAppStateAsync();
+        if (!IsRunning)
+        {
+            LastMessage = $"{reason} 已保存";
+            return;
+        }
+
+        LastMessage = $"{reason} 已保存，正在重启核心";
+        await _runtime.StopAsync();
+        await StartRuntimeCoreAsync();
+    }
+
     private bool CanStart()
     {
-        return !IsBusy && !IsRunning;
+        return !IsBusy && !IsRunning && !IsStarting;
     }
 
     private bool CanStop()
