@@ -70,6 +70,10 @@ internal static unsafe partial class LibClashNative
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static partial void NativeCloseAllConnections();
 
+    [LibraryImport(Library, EntryPoint = "libclash_set_mode", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static partial int NativeSetMode(string mode);
+
     [LibraryImport(Library, EntryPoint = "libclash_query_group_names")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static partial IntPtr NativeQueryGroupNames(int excludeNotSelectable);
@@ -177,6 +181,11 @@ internal static unsafe partial class LibClashNative
     public static void CloseAllConnections()
     {
         NativeCloseAllConnections();
+    }
+
+    public static bool SetMode(string mode)
+    {
+        return NativeSetMode(mode) != 0;
     }
 
     public static string QueryGroupNames(bool excludeNotSelectable)

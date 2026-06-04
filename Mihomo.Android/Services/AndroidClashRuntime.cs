@@ -294,6 +294,22 @@ internal sealed class AndroidClashRuntime : IClashRuntime
         }
     }
 
+    public async Task<bool> SetModeAsync(string mode, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return LibClashNative.SetMode(mode);
+            }, cancellationToken);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public async Task<int?> TestProxyDelayAsync(
         string proxyName,
         string testUrl,

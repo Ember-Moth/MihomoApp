@@ -65,6 +65,11 @@ internal sealed class UnsupportedClashRuntime : IClashRuntime
         return Task.FromResult(false);
     }
 
+    public Task<bool> SetModeAsync(string mode, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(false);
+    }
+
     public Task<int?> TestProxyDelayAsync(
         string proxyName,
         string testUrl,

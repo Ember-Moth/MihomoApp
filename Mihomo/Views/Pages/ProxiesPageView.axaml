@@ -72,7 +72,7 @@
         </Border>
 
         <ScrollViewer Grid.Row="2">
-            <StackPanel Margin="16,16,16,96"
+            <StackPanel Margin="12,16,12,96"
                         Spacing="0">
                 <Border Classes="card"
                         IsVisible="{Binding MissingSelectedGroup}">
@@ -100,15 +100,14 @@
                 <ItemsControl ItemsSource="{Binding VisibleProxyNodes}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <WrapPanel Orientation="Horizontal" />
+                            <UniformGrid Columns="2" />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:ProxyNodeItem">
-                            <Border Width="171"
-                                    Classes="proxyCard"
+                            <Border Classes="proxyCard"
                                     Classes.active="{Binding IsSelected}"
-                                    Margin="0,0,8,8">
+                                    Margin="4">
                                 <Grid>
                                     <Button Classes="proxyPick"
                                             Command="{Binding DataContext.SelectProxyCommand, ElementName=Root}"

@@ -8,6 +8,8 @@ namespace Mihomo;
 
 public partial class App : Application
 {
+    public static MainViewModel? CurrentMainViewModel { get; private set; }
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -17,16 +19,25 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IActivityApplicationLifetime singleViewFactoryApplicationLifetime)
         {
-            singleViewFactoryApplicationLifetime.MainViewFactory = () => new MainView { DataContext = new MainViewModel() };
+            singleViewFactoryApplicationLifetime.MainViewFactory = CreateMainView;
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
-            singleViewPlatform.MainView = new MainView
-            {
-                DataContext = new MainViewModel()
-            };
+            singleViewPlatform.MainView = CreateMainView();
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    public static bool TryHandleBack()
+    {
+        return CurrentMainViewModel?.HandleBack() == true;
+    }
+
+    private static MainView CreateMainView()
+    {
+        var viewModel = new MainViewModel();
+        CurrentMainViewModel = viewModel;
+        return new MainView { DataContext = viewModel };
     }
 }

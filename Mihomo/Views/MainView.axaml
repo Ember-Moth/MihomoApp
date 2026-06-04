@@ -16,17 +16,28 @@
     <Grid Background="{DynamicResource Brush.PageBackground}">
         <Grid RowDefinitions="56,*,80">
             <Border Grid.Row="0"
-                    Padding="16,0,8,0"
+                    Padding="4,0,8,0"
                     Background="{DynamicResource Brush.PageBackground}">
-                <Grid ColumnDefinitions="*,Auto"
+                <Grid ColumnDefinitions="Auto,*,Auto"
                       ColumnSpacing="8">
-                    <TextBlock Text="{Binding PageTitle}"
+                    <Button Classes="iconButton"
+                            IsVisible="{Binding IsAppBarBackVisible}"
+                            Command="{Binding NavigateBackCommand}">
+                        <TextBlock Text="‹"
+                                   FontSize="30"
+                                   FontWeight="Normal"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Button>
+
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding PageTitle}"
                                VerticalAlignment="Center"
                                Foreground="{DynamicResource Brush.TextPrimary}"
                                FontSize="22"
                                FontWeight="SemiBold" />
 
-                    <StackPanel Grid.Column="1"
+                    <StackPanel Grid.Column="2"
                                 Orientation="Horizontal"
                                 Spacing="4"
                                 VerticalAlignment="Center">
@@ -38,18 +49,29 @@
                                 Command="{Binding ToggleRunningCommand}" />
                         <Button Classes="iconButton"
                                 IsVisible="{Binding IsOverviewPage}"
-                                Content="✎" />
+                                Command="{Binding ShowToolsCommand}">
+                            <TextBlock Text="✎"
+                                       FontSize="22"
+                                       FontWeight="Normal" />
+                        </Button>
 
                         <Button Classes="iconButton"
                                 IsVisible="{Binding IsProxiesPage}"
-                                Content="⌕"
-                                Command="{Binding ToggleProxySearchCommand}" />
+                                Command="{Binding ToggleProxySearchCommand}">
+                            <TextBlock Text="⌕"
+                                       FontSize="24"
+                                       FontWeight="Normal" />
+                        </Button>
                         <Button Classes="iconButton"
                                 IsVisible="{Binding IsProxiesPage}"
-                                Content="◎"
-                                Command="{Binding ShowCurrentProxyCommand}" />
+                                Command="{Binding ShowCurrentProxyCommand}">
+                            <TextBlock Text="◎"
+                                       FontSize="22"
+                                       FontWeight="Normal" />
+                        </Button>
                         <Button Classes="iconButton"
                                 IsVisible="{Binding IsProxiesPage}"
+                                FontSize="24"
                                 Content="⋮">
                             <Button.Flyout>
                                 <MenuFlyout>
@@ -72,12 +94,18 @@
 
                         <Button Classes="iconButton"
                                 IsVisible="{Binding IsConfigPageWithProfiles}"
-                                Content="↻"
-                                Command="{Binding SyncConfigProfilesCommand}" />
+                                Command="{Binding SyncConfigProfilesCommand}">
+                            <TextBlock Text="↻"
+                                       FontSize="22"
+                                       FontWeight="Normal" />
+                        </Button>
                         <Button Classes="iconButton"
                                 IsVisible="{Binding IsConfigPageWithProfiles}"
-                                Content="⇅"
-                                Command="{Binding SortConfigProfilesCommand}" />
+                                Command="{Binding SortConfigProfilesCommand}">
+                            <TextBlock Text="⇅"
+                                       FontSize="22"
+                                       FontWeight="Normal" />
+                        </Button>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -91,7 +119,9 @@
 
             <Border Grid.Row="2"
                     Background="{DynamicResource Brush.ShellBackground}">
-                <Grid ColumnDefinitions="*,*,*,*">
+                <Grid>
+                    <Grid ColumnDefinitions="*,*,*,*"
+                          IsVisible="{Binding IsProxyNavigationVisible}">
                     <Button Grid.Column="0"
                             Classes="nav"
                             Classes.active="{Binding IsOverviewPage}"
@@ -195,6 +225,88 @@
                                        FontSize="11" />
                         </StackPanel>
                     </Button>
+                </Grid>
+
+                    <Grid ColumnDefinitions="*,*,*"
+                          IsVisible="{Binding IsCompactNavigationVisible}">
+                    <Button Grid.Column="0"
+                            Classes="nav"
+                            Classes.active="{Binding IsOverviewPage}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            Command="{Binding ShowOverviewCommand}">
+                        <StackPanel Spacing="4"
+                                    HorizontalAlignment="Center">
+                            <Grid Width="46"
+                                  Height="30">
+                                <Border Classes="navIndicator"
+                                        IsVisible="{Binding IsOverviewPage}" />
+                                <TextBlock Text="⌂"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold" />
+                            </Grid>
+                            <TextBlock Text="仪表盘"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                       FontSize="11" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Grid.Column="1"
+                            Classes="nav"
+                            Classes.active="{Binding IsConfigPage}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            Command="{Binding ShowConfigCommand}">
+                        <StackPanel Spacing="4"
+                                    HorizontalAlignment="Center">
+                            <Grid Width="46"
+                                  Height="30">
+                                <Border Classes="navIndicator"
+                                        IsVisible="{Binding IsConfigPage}" />
+                                <TextBlock Text="⚙"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold" />
+                            </Grid>
+                            <TextBlock Text="配置"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                       FontSize="11" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Grid.Column="2"
+                            Classes="nav"
+                            Classes.active="{Binding IsToolsPage}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            Command="{Binding ShowToolsCommand}">
+                        <StackPanel Spacing="4"
+                                    HorizontalAlignment="Center">
+                            <Grid Width="46"
+                                  Height="30">
+                                <Border Classes="navIndicator"
+                                        IsVisible="{Binding IsToolsPage}" />
+                                <TextBlock Text="⚒"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold" />
+                            </Grid>
+                            <TextBlock Text="工具"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                       FontSize="11" />
+                        </StackPanel>
+                    </Button>
+                    </Grid>
                 </Grid>
             </Border>
         </Grid>

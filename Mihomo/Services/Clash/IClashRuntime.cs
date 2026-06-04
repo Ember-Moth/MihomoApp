@@ -33,6 +33,10 @@ public interface IClashRuntime
         string proxyName,
         CancellationToken cancellationToken = default);
 
+    Task<bool> SetModeAsync(
+        string mode,
+        CancellationToken cancellationToken = default);
+
     Task<int?> TestProxyDelayAsync(
         string proxyName,
         string testUrl,

@@ -140,19 +140,21 @@ public partial class MainViewModel
 
         await RunAsync(async () =>
         {
-            var shouldRestart = IsRunning;
             OutboundMode = nextMode;
             ConfigContent = ApplyOutboundMode(ConfigContent, OutboundMode);
             SaveConfigContent();
-            LastMessage = $"出站模式: {OutboundModeTitle}";
 
-            if (!shouldRestart)
+            if (IsRunning)
             {
+                var applied = await _runtime.SetModeAsync(OutboundMode);
+                LastMessage = applied
+                    ? $"出站模式: {OutboundModeTitle}"
+                    : $"出站模式切换失败: {OutboundModeTitle}";
+                await RefreshProxiesCoreAsync();
                 return;
             }
 
-            await _runtime.StopAsync();
-            await StartRuntimeCoreAsync();
+            LastMessage = $"出站模式: {OutboundModeTitle}";
         });
     }
 

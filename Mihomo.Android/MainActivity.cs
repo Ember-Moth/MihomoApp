@@ -1,6 +1,7 @@
 using Android.App;
 using Android.Content.PM;
 using Android.OS;
+using AndroidX.Activity;
 using Avalonia.Android;
 using Mihomo.Android.Services;
 
@@ -20,6 +21,7 @@ public class MainActivity : AvaloniaMainActivity
     {
         AndroidClashRuntime.Install(this);
         base.OnCreate(savedInstanceState);
+        OnBackPressedDispatcher.AddCallback(this, new BackCallback(this));
         RequestNotificationPermission();
     }
 
@@ -48,5 +50,26 @@ public class MainActivity : AvaloniaMainActivity
         RequestPermissions(
             [global::Android.Manifest.Permission.PostNotifications],
             RequestPostNotifications);
+    }
+
+    private sealed class BackCallback(MainActivity activity) : OnBackPressedCallback(true)
+    {
+        public override void HandleOnBackPressed()
+        {
+            if (App.TryHandleBack())
+            {
+                return;
+            }
+
+            Enabled = false;
+            try
+            {
+                activity.OnBackPressedDispatcher.OnBackPressed();
+            }
+            finally
+            {
+                Enabled = true;
+            }
+        }
     }
 }

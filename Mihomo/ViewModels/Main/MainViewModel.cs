@@ -322,6 +322,23 @@ public partial class MainViewModel : ViewModelBase
 
     public bool IsConfigPageWithProfiles => IsConfigPage && HasConfigProfiles;
 
+    public bool IsProxyNavigationVisible => IsRunning;
+
+    public bool IsCompactNavigationVisible => !IsProxyNavigationVisible;
+
+    public bool CanNavigateBack =>
+        IsAddProfilePanelVisible ||
+        IsProxySearchVisible ||
+        IsProxyGroupListVisible ||
+        IsToolsPage && !string.IsNullOrWhiteSpace(CurrentToolPage) ||
+        !IsOverviewPage;
+
+    public bool IsAppBarBackVisible =>
+        IsAddProfilePanelVisible ||
+        IsProxySearchVisible ||
+        IsProxyGroupListVisible ||
+        IsToolsPage && !string.IsNullOrWhiteSpace(CurrentToolPage);
+
     public bool IsAddProfileMenuVisible => IsAddProfilePanelVisible && !IsAddProfileUrlInputVisible;
 
     public string PublicIpCountryMark => CountryCodeToEmoji(PublicIpCountryCode);
@@ -375,11 +392,11 @@ public partial class MainViewModel : ViewModelBase
     {
         "language" => "语言",
         "theme" => "主题",
-        "backup" => "备份和恢复",
+        "backup" => "备份与恢复",
         "access" => "访问控制",
-        "basic" => "基础配置",
-        "advanced" => "高级配置",
-        "application" => "应用设置",
+        "basic" => "基本配置",
+        "advanced" => "进阶配置",
+        "application" => "应用程序",
         "disclaimer" => "免责声明",
         "about" => "关于",
         _ => "工具"
@@ -487,6 +504,8 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsConfigPage));
         OnPropertyChanged(nameof(IsToolsPage));
         OnPropertyChanged(nameof(IsConfigPageWithProfiles));
+        OnPropertyChanged(nameof(CanNavigateBack));
+        OnPropertyChanged(nameof(IsAppBarBackVisible));
         OnPropertyChanged(nameof(PageTitle));
         OnPropertyChanged(nameof(PageSubtitle));
         NotifyToolPageProperties();
@@ -497,6 +516,10 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(RunningActionText));
         OnPropertyChanged(nameof(RunningActionCommand));
         OnPropertyChanged(nameof(RunningStateText));
+        OnPropertyChanged(nameof(IsProxyNavigationVisible));
+        OnPropertyChanged(nameof(IsCompactNavigationVisible));
+        OnPropertyChanged(nameof(CanNavigateBack));
+        OnPropertyChanged(nameof(IsAppBarBackVisible));
         OnPropertyChanged(nameof(PageSubtitle));
         if (value)
         {
@@ -508,6 +531,11 @@ public partial class MainViewModel : ViewModelBase
         }
         else
         {
+            if (IsProxiesPage)
+            {
+                CurrentPage = "overview";
+            }
+
             _telemetryTimer.Stop();
             _startedAt = null;
             RunningDuration = "00:00:00";
@@ -589,6 +617,18 @@ public partial class MainViewModel : ViewModelBase
         UpdateVisibleProxyNodes();
     }
 
+    partial void OnIsProxySearchVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanNavigateBack));
+        OnPropertyChanged(nameof(IsAppBarBackVisible));
+    }
+
+    partial void OnIsProxyGroupListVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanNavigateBack));
+        OnPropertyChanged(nameof(IsAppBarBackVisible));
+    }
+
     partial void OnProxySortModeChanged(string value)
     {
         UpdateVisibleProxyNodes();
@@ -609,6 +649,8 @@ public partial class MainViewModel : ViewModelBase
     partial void OnCurrentToolPageChanged(string value)
     {
         NotifyToolPageProperties();
+        OnPropertyChanged(nameof(CanNavigateBack));
+        OnPropertyChanged(nameof(IsAppBarBackVisible));
         OnPropertyChanged(nameof(PageTitle));
         OnPropertyChanged(nameof(PageSubtitle));
     }
@@ -626,6 +668,8 @@ public partial class MainViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(IsAddProfileMenuVisible));
+        OnPropertyChanged(nameof(CanNavigateBack));
+        OnPropertyChanged(nameof(IsAppBarBackVisible));
     }
 
     partial void OnIsAddProfileUrlInputVisibleChanged(bool value)
@@ -648,6 +692,12 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void ShowProxies()
     {
+        if (!IsProxyNavigationVisible)
+        {
+            LastMessage = "启动 VPN 后可查看代理";
+            return;
+        }
+
         CurrentPage = "proxies";
     }
 
@@ -667,6 +717,48 @@ public partial class MainViewModel : ViewModelBase
     private void ToggleTheme()
     {
         IsDarkTheme = !IsDarkTheme;
+    }
+
+    [RelayCommand]
+    private void NavigateBack()
+    {
+        HandleBack();
+    }
+
+    public bool HandleBack()
+    {
+        if (IsAddProfilePanelVisible)
+        {
+            IsAddProfilePanelVisible = false;
+            return true;
+        }
+
+        if (IsProxyGroupListVisible)
+        {
+            IsProxyGroupListVisible = false;
+            return true;
+        }
+
+        if (IsProxySearchVisible)
+        {
+            IsProxySearchVisible = false;
+            ProxySearchText = string.Empty;
+            return true;
+        }
+
+        if (IsToolsPage && !string.IsNullOrWhiteSpace(CurrentToolPage))
+        {
+            CurrentToolPage = string.Empty;
+            return true;
+        }
+
+        if (!IsOverviewPage)
+        {
+            CurrentPage = "overview";
+            return true;
+        }
+
+        return false;
     }
 
     private void QueueRuntimeRestart(string reason, bool needsConfigSave = false)

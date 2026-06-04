@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.Json;
 using Foundation;
 using NetworkExtension;
 using Mihomo.Models;
@@ -8,8 +10,15 @@ namespace Mihomo.iOS.Services;
 internal sealed class IosClashRuntime : IClashRuntime
 {
     private const string ExternalControllerListenAt = "127.0.0.1:9090";
+    private const string ExternalControllerBaseUrl = "http://127.0.0.1:9090";
     private const string PacketTunnelBundleIdentifier = "com.embermoth.mihomo.PacketTunnel";
     private const string AppGroupIdentifier = "group.com.embermoth.mihomo";
+
+    private readonly HttpClient controllerClient = new() { BaseAddress = new Uri(ExternalControllerBaseUrl) };
+    private readonly object trafficLock = new();
+    private DateTimeOffset? lastTrafficAt;
+    private long lastUploadTotal;
+    private long lastDownloadTotal;
 
     public event EventHandler<ClashStatus>? StatusChanged;
 
@@ -103,38 +112,167 @@ internal sealed class IosClashRuntime : IClashRuntime
         Publish(ClashStatus.Stopped);
     }
 
-    public Task<IReadOnlyList<ClashProxyGroup>> GetProxyGroupsAsync(
+    public async Task<IReadOnlyList<ClashProxyGroup>> GetProxyGroupsAsync(
         string sortMode,
         CancellationToken cancellationToken = default)
     {
-        return Task.FromResult<IReadOnlyList<ClashProxyGroup>>([]);
+        try
+        {
+            var json = await controllerClient.GetStringAsync("/proxies", cancellationToken);
+            var response = JsonSerializer.Deserialize(
+                json,
+                IosClashJsonContext.Default.IosControllerProxiesResponse);
+            var proxyMap = response?.Proxies;
+            if (proxyMap is not { Count: > 0 })
+            {
+                return [];
+            }
+
+            var groups = new List<ClashProxyGroup>();
+            foreach (var (name, group) in proxyMap)
+            {
+                if (group.All is not { Count: > 0 } all)
+                {
+                    continue;
+                }
+
+                var proxies = all
+                    .Where(proxyName => !string.IsNullOrWhiteSpace(proxyName))
+                    .Select(proxyName =>
+                    {
+                        proxyMap.TryGetValue(proxyName, out var proxy);
+                        return new ClashProxy(
+                            proxyName,
+                            proxy?.Type ?? string.Empty,
+                            proxy?.Now ?? string.Empty,
+                            LatestDelay(proxy));
+                    })
+                    .ToArray();
+
+                groups.Add(new ClashProxyGroup(
+                    name,
+                    group.Type ?? string.Empty,
+                    group.Now ?? string.Empty,
+                    string.Empty,
+                    proxies));
+            }
+
+            return groups;
+        }
+        catch
+        {
+            return [];
+        }
     }
 
-    public Task<ClashTraffic?> GetTrafficAsync(CancellationToken cancellationToken = default)
+    public async Task<ClashTraffic?> GetTrafficAsync(CancellationToken cancellationToken = default)
     {
-        return Task.FromResult<ClashTraffic?>(null);
+        try
+        {
+            var snapshot = await GetConnectionsSnapshotAsync(cancellationToken);
+            var now = DateTimeOffset.UtcNow;
+
+            lock (trafficLock)
+            {
+                var elapsed = lastTrafficAt == null ? 0 : Math.Max(0.001, (now - lastTrafficAt.Value).TotalSeconds);
+                var uploadRate = lastTrafficAt == null
+                    ? 0
+                    : (long)Math.Max(0, (snapshot.UploadTotal - lastUploadTotal) / elapsed);
+                var downloadRate = lastTrafficAt == null
+                    ? 0
+                    : (long)Math.Max(0, (snapshot.DownloadTotal - lastDownloadTotal) / elapsed);
+
+                lastTrafficAt = now;
+                lastUploadTotal = snapshot.UploadTotal;
+                lastDownloadTotal = snapshot.DownloadTotal;
+
+                return new ClashTraffic(
+                    uploadRate,
+                    downloadRate,
+                    snapshot.UploadTotal,
+                    snapshot.DownloadTotal);
+            }
+        }
+        catch
+        {
+            return null;
+        }
     }
 
-    public Task<int?> GetConnectionCountAsync(CancellationToken cancellationToken = default)
+    public async Task<int?> GetConnectionCountAsync(CancellationToken cancellationToken = default)
     {
-        return Task.FromResult<int?>(null);
+        try
+        {
+            var snapshot = await GetConnectionsSnapshotAsync(cancellationToken);
+            return snapshot.Connections?.Count;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
-    public Task<bool> SelectProxyAsync(
+    public async Task<bool> SelectProxyAsync(
         string groupName,
         string proxyName,
         CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(false);
+        try
+        {
+            using var request = CreateJsonRequest(
+                HttpMethod.Put,
+                $"/proxies/{Uri.EscapeDataString(groupName)}",
+                JsonSerializer.Serialize(
+                    new IosControllerNameRequest(proxyName),
+                    IosClashJsonContext.Default.IosControllerNameRequest));
+            using var response = await controllerClient.SendAsync(request, cancellationToken);
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
-    public Task<int?> TestProxyDelayAsync(
+    public async Task<bool> SetModeAsync(string mode, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var request = CreateJsonRequest(
+                HttpMethod.Patch,
+                "/configs",
+                JsonSerializer.Serialize(
+                    new IosControllerModeRequest(mode),
+                    IosClashJsonContext.Default.IosControllerModeRequest));
+            using var response = await controllerClient.SendAsync(request, cancellationToken);
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<int?> TestProxyDelayAsync(
         string proxyName,
         string testUrl,
         int timeoutMilliseconds = 5000,
         CancellationToken cancellationToken = default)
     {
-        return Task.FromResult<int?>(null);
+        try
+        {
+            var path = $"/proxies/{Uri.EscapeDataString(proxyName)}/delay" +
+                $"?timeout={timeoutMilliseconds}&url={Uri.EscapeDataString(testUrl)}";
+            var json = await controllerClient.GetStringAsync(path, cancellationToken);
+            var response = JsonSerializer.Deserialize(
+                json,
+                IosClashJsonContext.Default.IosControllerDelayResponse);
+            return response?.Delay > 0 ? response.Delay : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public Task HealthCheckAsync(string groupName, CancellationToken cancellationToken = default)
@@ -142,9 +280,42 @@ internal sealed class IosClashRuntime : IClashRuntime
         return Task.CompletedTask;
     }
 
-    public Task CloseAllConnectionsAsync(CancellationToken cancellationToken = default)
+    public async Task CloseAllConnectionsAsync(CancellationToken cancellationToken = default)
     {
-        return Task.CompletedTask;
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Delete, "/connections");
+            using var response = await controllerClient.SendAsync(request, cancellationToken);
+        }
+        catch
+        {
+            // Closing stale connections is best-effort after switching nodes.
+        }
+    }
+
+    private async Task<IosControllerConnectionsResponse> GetConnectionsSnapshotAsync(
+        CancellationToken cancellationToken)
+    {
+        var json = await controllerClient.GetStringAsync("/connections", cancellationToken);
+        return JsonSerializer.Deserialize(
+            json,
+            IosClashJsonContext.Default.IosControllerConnectionsResponse) ?? new IosControllerConnectionsResponse();
+    }
+
+    private static HttpRequestMessage CreateJsonRequest(HttpMethod method, string path, string json)
+    {
+        return new HttpRequestMessage(method, path)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+    }
+
+    private static int? LatestDelay(IosControllerProxy? proxy)
+    {
+        var delay = proxy?.History?
+            .LastOrDefault(history => history.Delay > 0)?
+            .Delay;
+        return delay > 0 ? delay : null;
     }
 
     private static async Task<NETunnelProviderManager> LoadOrCreateManagerAsync()
