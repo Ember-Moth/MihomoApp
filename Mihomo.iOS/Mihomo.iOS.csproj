@@ -10,6 +10,7 @@
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <RuntimeIdentifiers>ios-arm64;iossimulator-arm64</RuntimeIdentifiers>
+    <CodesignEntitlements Condition="'$(MihomoDisableIosEntitlements)' == 'true'">EmptyEntitlements.plist</CodesignEntitlements>
     <CodesignEntitlements Condition="'$(MihomoDisableIosEntitlements)' != 'true'">Entitlements.plist</CodesignEntitlements>
   </PropertyGroup>
 
