@@ -33,7 +33,7 @@ on:
 jobs:
   build:
     name: Build Mihomo iOS
-    runs-on: macos-latest
+    runs-on: macos-26
     permissions:
       contents: read
       actions: read
@@ -51,6 +51,11 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Show toolchains
+        run: |
+          xcodebuild -version
+          dotnet --info
 
       - name: Install iOS workload
         run: dotnet workload install ios

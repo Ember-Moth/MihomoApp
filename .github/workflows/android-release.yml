@@ -1,0 +1,137 @@
+name: Build Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      libclash_ref:
+        description: "libclash git ref to build."
+        required: false
+        default: "main"
+        type: string
+  release:
+    types:
+      - published
+  push:
+    branches:
+      - main
+    paths:
+      - "Mihomo/**"
+      - "Mihomo.Android/**"
+      - "Directory.Packages.props"
+      - "Directory.Build.props"
+      - "global.json"
+      - "Mihomo.slnx"
+      - "scripts/**"
+      - ".github/workflows/android-release.yml"
+  pull_request:
+    paths:
+      - "Mihomo/**"
+      - "Mihomo.Android/**"
+      - "Directory.Packages.props"
+      - "Directory.Build.props"
+      - "global.json"
+      - "Mihomo.slnx"
+      - "scripts/**"
+      - ".github/workflows/android-release.yml"
+
+jobs:
+  build:
+    name: Build Android NativeAOT APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    env:
+      DOTNET_VERSION: "11.0.100-preview.4.26230.115"
+      ANDROID_NDK_VERSION: "27.1.12297006"
+      LIBCLASH_REF: ${{ github.event.inputs.libclash_ref || 'main' }}
+
+    steps:
+      - name: Checkout Mihomo
+        uses: actions/checkout@v4
+
+      - name: Checkout libclash
+        uses: actions/checkout@v4
+        with:
+          repository: Ember-Moth/libclash
+          ref: ${{ env.LIBCLASH_REF }}
+          path: .tmp/libclash
+          token: ${{ secrets.LIBCLASH_ARTIFACT_TOKEN || github.token }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: .tmp/libclash/go.mod
+          cache-dependency-path: .tmp/libclash/go.sum
+
+      - name: Install Android NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sdkmanager_path="${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$sdkmanager_path" ]]; then
+            sdkmanager_path="$(command -v sdkmanager)"
+          fi
+
+          yes | "$sdkmanager_path" --licenses >/dev/null
+          "$sdkmanager_path" "platforms;android-36" "ndk;$ANDROID_NDK_VERSION"
+
+          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Build libclash Android shared libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ANDROID_API_LEVEL=23 \
+          INSTALL_DIR="$PWD/Mihomo.Android/NativeLibraries" \
+          bash .tmp/libclash/scripts/build-cshared-android.sh
+
+      - name: Install project-local .NET 11 SDK
+        run: ./scripts/install-dotnet11-sdk.sh
+
+      - name: Install project-local Android workload
+        run: ./scripts/install-dotnet11-android-minimal.sh
+
+      - name: Publish Android NativeAOT APKs
+        run: ./scripts/publish-android-nativeaot.sh
+
+      - name: Collect APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p artifacts/android
+          cp Mihomo.Android/bin/Release/net11.0-android/android-arm64/publish/com.embermoth.mihomo-Signed.apk \
+            artifacts/android/Mihomo-android-arm64-release.apk
+          cp Mihomo.Android/bin/Release/net11.0-android/android-x64/publish/com.embermoth.mihomo-Signed.apk \
+            artifacts/android/Mihomo-android-x64-release.apk
+
+          sha256sum artifacts/android/*.apk > artifacts/android/SHA256SUMS
+
+      - name: Upload Android APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: mihomo-android-release
+          path: artifacts/android
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload APKs to GitHub Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh release upload "$RELEASE_TAG" \
+            artifacts/android/*.apk \
+            artifacts/android/SHA256SUMS \
+            --clobber
