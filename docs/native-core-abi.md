@@ -1,28 +1,56 @@
 # Native Core ABI
 
-Android loads a CGO `c-shared` library named `libclash.so` through .NET
-P/Invoke. Put ABI-specific builds here:
+The default Android app loads a CGO `c-shared` library named `libclash.so`
+through .NET P/Invoke. Put ABI-specific builds here:
 
 ```text
-Mihomo.Android/NativeLibraries/armeabi-v7a/libclash.so
-Mihomo.Android/NativeLibraries/arm64-v8a/libclash.so
-Mihomo.Android/NativeLibraries/x86_64/libclash.so
+Aureline.Android/NativeLibraries/armeabi-v7a/libclash.so
+Aureline.Android/NativeLibraries/arm64-v8a/libclash.so
+Aureline.Android/NativeLibraries/x86_64/libclash.so
 ```
 
-The Android C# binding lives in `Mihomo.Android/Interop/LibClashNative.cs`.
+The Android C# binding lives in `Aureline.Android/Interop/LibClashNative.cs`.
+
+There are also Android core variants:
+
+```text
+Aureline.ClashRs.Android/NativeLibraries/armeabi-v7a/libclash.so
+Aureline.ClashRs.Android/NativeLibraries/arm64-v8a/libclash.so
+Aureline.ClashRs.Android/NativeLibraries/x86_64/libclash.so
+Aureline.ClashRs.Android/NativeLibraries/*/libboring_noise-*.so
+Aureline.ClashRs.Android/NativeLibraries/*/libtun_rs-*.so
+
+Aureline.Meow.Android/NativeLibraries/armeabi-v7a/libmeow.so
+Aureline.Meow.Android/NativeLibraries/arm64-v8a/libmeow.so
+Aureline.Meow.Android/NativeLibraries/x86_64/libmeow.so
+```
+
+`Aureline.ClashRs.Android` currently reuses the default Android binding because
+its mobile FFI exports `libclash_*` symbols. `Aureline.Meow.Android` has its own
+`Interop/LibClashNative.cs`; the C# class name stays the same only so the shared
+Android runtime can be linked unchanged. The native function names are
+`libmeow_*`, and that ABI is not required to match iOS or the Go `libclash`
+ABI exactly.
+
+Android 16 will require 16 KB native library page sizes. Rust Android cores
+should be linked with a 16 KB max page size, for example:
+
+```bash
+-C link-arg=-Wl,-z,max-page-size=16384
+```
 
 iOS links a CGO `c-archive` static library and calls it through `__Internal`
 P/Invoke. GitHub Actions downloads the artifact into:
 
 ```text
-Mihomo.iOS.PacketTunnel/NativeLibraries/ios/iphoneos-arm64/libclash.a
-Mihomo.iOS.PacketTunnel/NativeLibraries/ios/iphonesimulator/libclash.a
-Mihomo.iOS.PacketTunnel/NativeLibraries/ios/include/libclash.h
-Mihomo.iOS.PacketTunnel/NativeLibraries/ios/libclash.xcframework
+Aureline.iOS.PacketTunnel/NativeLibraries/ios/iphoneos-arm64/libclash.a
+Aureline.iOS.PacketTunnel/NativeLibraries/ios/iphonesimulator/libclash.a
+Aureline.iOS.PacketTunnel/NativeLibraries/ios/include/libclash.h
+Aureline.iOS.PacketTunnel/NativeLibraries/ios/libclash.xcframework
 ```
 
 The iOS C# binding lives in
-`Mihomo.iOS.PacketTunnel/Interop/LibClashNative.cs`.
+`Aureline.iOS.PacketTunnel/Interop/LibClashNative.cs`.
 
 On iOS, `libclash_start_tun` is called from the Packet Tunnel extension, not the
 main app. The extension obtains the TUN fd by scanning open file descriptors for

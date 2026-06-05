@@ -454,9 +454,11 @@ $RECYCLE.BIN/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
-Mihomo.Android/NativeLibraries/*/libclash.so
-Mihomo.iOS.PacketTunnel/NativeLibraries/ios/**
-!Mihomo.iOS.PacketTunnel/NativeLibraries/ios/
-!Mihomo.iOS.PacketTunnel/NativeLibraries/ios/.gitkeep
-Mihomo.iOS.PacketTunnel/NativeLibraries/*.tar
-Mihomo.iOS.PacketTunnel/NativeLibraries/*.tar.gz
+Aureline.Android/NativeLibraries/*/libclash.so
+Aureline.ClashRs.Android/NativeLibraries/**/*.so
+Aureline.Meow.Android/NativeLibraries/**/*.so
+Aureline.iOS.PacketTunnel/NativeLibraries/ios/**
+!Aureline.iOS.PacketTunnel/NativeLibraries/ios/
+!Aureline.iOS.PacketTunnel/NativeLibraries/ios/.gitkeep
+Aureline.iOS.PacketTunnel/NativeLibraries/*.tar
+Aureline.iOS.PacketTunnel/NativeLibraries/*.tar.gz

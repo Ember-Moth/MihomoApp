@@ -1,0 +1,79 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net$(AurelineDotNetVersion)-android</TargetFramework>
+    <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationId>com.embermoth.aureline.meow</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <AndroidManifest>Properties\AndroidManifest.xml</AndroidManifest>
+    <RootNamespace>Aureline.Android</RootNamespace>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <RuntimeIdentifiers Condition="'$(RuntimeIdentifier)' == ''">android-arm;android-arm64;android-x64</RuntimeIdentifiers>
+    <AndroidSourceRoot>..\Aureline.Android</AndroidSourceRoot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(AurelineEnableNativeAot)' != 'true'">
+    <RunAOTCompilation>true</RunAOTCompilation>
+    <AndroidAotEnableLazyLoad>true</AndroidAotEnableLazyLoad>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(AurelineEnableNativeAot)' == 'true'">
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <TrimMode>full</TrimMode>
+    <NoWarn>$(NoWarn);IL3050</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(AndroidSourceRoot)\**\*.cs"
+             Exclude="$(AndroidSourceRoot)\bin\**;$(AndroidSourceRoot)\obj\**;$(AndroidSourceRoot)\Interop\LibClashNative.cs"
+             Link="Shared\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AndroidResource Include="$(AndroidSourceRoot)\Icon.png">
+      <Link>Resources\drawable\icon.png</Link>
+    </AndroidResource>
+    <AndroidResource Include="$(AndroidSourceRoot)\Resources\**\*.xml"
+                     Link="Resources\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AndroidNativeLibrary Remove="NativeLibraries\**\*.so" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'android-arm64'">
+    <AndroidNativeLibrary Include="NativeLibraries\arm64-v8a\libmeow.so" Abi="arm64-v8a" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'android-arm'">
+    <AndroidNativeLibrary Include="NativeLibraries\armeabi-v7a\libmeow.so" Abi="armeabi-v7a" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'android-x64'">
+    <AndroidNativeLibrary Include="NativeLibraries\x86_64\libmeow.so" Abi="x86_64" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == ''">
+    <AndroidNativeLibrary Include="NativeLibraries\arm64-v8a\libmeow.so" Abi="arm64-v8a" />
+    <AndroidNativeLibrary Include="NativeLibraries\armeabi-v7a\libmeow.so" Abi="armeabi-v7a" />
+    <AndroidNativeLibrary Include="NativeLibraries\x86_64\libmeow.so" Abi="x86_64" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Android" />
+    <PackageReference Include="Xamarin.AndroidX.Core.SplashScreen" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3.android" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Aureline\Aureline.csproj" />
+  </ItemGroup>
+</Project>

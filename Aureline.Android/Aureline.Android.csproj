@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net$(AurelineDotNetVersion)-android</TargetFramework>
+    <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationId>com.embermoth.aureline</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <RuntimeIdentifiers Condition="'$(RuntimeIdentifier)' == ''">android-arm;android-arm64;android-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(AurelineEnableNativeAot)' != 'true'">
+    <RunAOTCompilation>true</RunAOTCompilation>
+    <AndroidAotEnableLazyLoad>true</AndroidAotEnableLazyLoad>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(AurelineEnableNativeAot)' == 'true'">
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <TrimMode>full</TrimMode>
+    <!-- .NET 11 Preview 4 Android NativeAOT emits IL3050 from Mono.Android/Java.Interop bridge internals. -->
+    <NoWarn>$(NoWarn);IL3050</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AndroidResource Include="Icon.png">
+      <Link>Resources\drawable\icon.png</Link>
+    </AndroidResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <AndroidNativeLibrary Remove="NativeLibraries\**\*.so" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'android-arm64'">
+    <AndroidNativeLibrary Include="NativeLibraries\arm64-v8a\libclash.so" Abi="arm64-v8a" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'android-arm'">
+    <AndroidNativeLibrary Include="NativeLibraries\armeabi-v7a\libclash.so" Abi="armeabi-v7a" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'android-x64'">
+    <AndroidNativeLibrary Include="NativeLibraries\x86_64\libclash.so" Abi="x86_64" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == ''">
+    <AndroidNativeLibrary Include="NativeLibraries\arm64-v8a\libclash.so" Abi="arm64-v8a" />
+    <AndroidNativeLibrary Include="NativeLibraries\armeabi-v7a\libclash.so" Abi="armeabi-v7a" />
+    <AndroidNativeLibrary Include="NativeLibraries\x86_64\libclash.so" Abi="x86_64" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Android" />
+    <PackageReference Include="Xamarin.AndroidX.Core.SplashScreen" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3.android" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Aureline\Aureline.csproj" />
+  </ItemGroup>
+</Project>

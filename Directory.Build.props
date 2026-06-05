@@ -1,8 +1,8 @@
 <Project>
   <PropertyGroup>
-    <MihomoDotNetVersion Condition="'$(MihomoDotNetVersion)' == ''">11.0</MihomoDotNetVersion>
-    <MihomoEnableNativeAot Condition="'$(MihomoEnableNativeAot)' == ''">true</MihomoEnableNativeAot>
-    <EnablePreviewFeatures Condition="'$(MihomoEnableNativeAot)' == 'true'">true</EnablePreviewFeatures>
-    <TrimmerSingleWarn Condition="'$(MihomoEnableNativeAot)' == 'true'">false</TrimmerSingleWarn>
+    <AurelineDotNetVersion Condition="'$(AurelineDotNetVersion)' == ''">11.0</AurelineDotNetVersion>
+    <AurelineEnableNativeAot Condition="'$(AurelineEnableNativeAot)' == ''">true</AurelineEnableNativeAot>
+    <EnablePreviewFeatures Condition="'$(AurelineEnableNativeAot)' == 'true'">true</EnablePreviewFeatures>
+    <TrimmerSingleWarn Condition="'$(AurelineEnableNativeAot)' == 'true'">false</TrimmerSingleWarn>
   </PropertyGroup>
 </Project>

@@ -1,0 +1,24 @@
+Aureline
+========
+
+Aureline is an independent proxy client shell. It is not an official project of
+mihomo, Clash, MetaCubeX, clash-rs, meow, or Avalonia.
+
+Project code owned by this repository is licensed under the Apache License 2.0.
+
+Third-party components
+----------------------
+
+- Avalonia and .NET for Android/iOS are used for the application UI and platform
+  bindings. See their upstream license notices.
+- libclash is an in-repository native core wrapper around github.com/metacubex/mihomo.
+  mihomo/libclash based release artifacts must comply with GPL-3.0.
+- clash-rs is used by the Aureline.ClashRs.Android variant. Its base license is
+  Apache-2.0, but its upstream NOTICE may require GPL-3.0 when GPL features are
+  enabled.
+- libmeow/meow-rs is used by the Aureline.Meow.Android variant and is MIT
+  licensed upstream.
+
+The application name "Aureline" and Chinese name "曜线" are project branding for
+this repository only and should not be used to imply endorsement by upstream
+native core projects.

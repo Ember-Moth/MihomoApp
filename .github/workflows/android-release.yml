@@ -9,12 +9,12 @@ on:
     branches:
       - main
     paths:
-      - "Mihomo/**"
-      - "Mihomo.Android/**"
+      - "Aureline/**"
+      - "Aureline.Android/**"
       - "Directory.Packages.props"
       - "Directory.Build.props"
       - "global.json"
-      - "Mihomo.slnx"
+      - "Aureline.slnx"
       - "scripts/**"
       - ".gitmodules"
       - "libclash"
@@ -22,12 +22,12 @@ on:
       - ".github/workflows/android-release.yml"
   pull_request:
     paths:
-      - "Mihomo/**"
-      - "Mihomo.Android/**"
+      - "Aureline/**"
+      - "Aureline.Android/**"
       - "Directory.Packages.props"
       - "Directory.Build.props"
       - "global.json"
-      - "Mihomo.slnx"
+      - "Aureline.slnx"
       - "scripts/**"
       - ".gitmodules"
       - "libclash"
@@ -46,7 +46,7 @@ jobs:
       ANDROID_NDK_VERSION: "27.1.12297006"
 
     steps:
-      - name: Checkout Mihomo
+      - name: Checkout Aureline
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -93,7 +93,7 @@ jobs:
           set -euo pipefail
 
           ANDROID_API_LEVEL=23 \
-          INSTALL_DIR="$PWD/Mihomo.Android/NativeLibraries" \
+          INSTALL_DIR="$PWD/Aureline.Android/NativeLibraries" \
           bash libclash/scripts/build-cshared-android.sh
 
       - name: Install project-local .NET 11 SDK
@@ -111,17 +111,17 @@ jobs:
           set -euo pipefail
 
           mkdir -p artifacts/android
-          cp Mihomo.Android/bin/Release/net11.0-android/android-arm64/publish/com.embermoth.mihomo-Signed.apk \
-            artifacts/android/Mihomo-android-arm64-release.apk
-          cp Mihomo.Android/bin/Release/net11.0-android/android-x64/publish/com.embermoth.mihomo-Signed.apk \
-            artifacts/android/Mihomo-android-x64-release.apk
+          cp Aureline.Android/bin/Release/net11.0-android/android-arm64/publish/com.embermoth.aureline-Signed.apk \
+            artifacts/android/Aureline-android-arm64-release.apk
+          cp Aureline.Android/bin/Release/net11.0-android/android-x64/publish/com.embermoth.aureline-Signed.apk \
+            artifacts/android/Aureline-android-x64-release.apk
 
           sha256sum artifacts/android/*.apk > artifacts/android/SHA256SUMS
 
       - name: Upload Android APKs
         uses: actions/upload-artifact@v4
         with:
-          name: mihomo-android-release
+          name: aureline-android-release
           path: artifacts/android
           if-no-files-found: error
           retention-days: 14

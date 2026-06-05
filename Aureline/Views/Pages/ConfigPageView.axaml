@@ -1,0 +1,272 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Aureline.ViewModels"
+             mc:Ignorable="d"
+             d:DesignWidth="390"
+             d:DesignHeight="760"
+             x:Name="Root"
+             x:Class="Aureline.Views.Pages.ConfigPageView"
+             x:DataType="vm:MainViewModel">
+    <Grid>
+        <Grid IsVisible="{Binding MissingConfigProfiles}"
+              Margin="0,0,0,80">
+            <StackPanel HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="16">
+                <Border Classes="profileEmptyIllustration">
+                    <Grid>
+                        <Border Width="88"
+                                Height="70"
+                                CornerRadius="12"
+                                Background="{DynamicResource Brush.Surface}"
+                                BorderBrush="{DynamicResource Brush.BorderMuted}"
+                                BorderThickness="1"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                            <StackPanel Margin="18,16"
+                                        Spacing="8">
+                                <Border Height="8"
+                                        Width="52"
+                                        CornerRadius="4"
+                                        HorizontalAlignment="Left"
+                                        Background="{DynamicResource Brush.BorderMuted}" />
+                                <Border Height="8"
+                                        Width="42"
+                                        CornerRadius="4"
+                                        HorizontalAlignment="Left"
+                                        Background="{DynamicResource Brush.BorderMuted}" />
+                                <Border Height="8"
+                                        Width="30"
+                                        CornerRadius="4"
+                                        HorizontalAlignment="Left"
+                                        Background="{DynamicResource Brush.BorderMuted}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Width="46"
+                                Height="46"
+                                CornerRadius="23"
+                                Background="{DynamicResource Brush.Accent}"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                Margin="0,0,18,18">
+                            <TextBlock Text="⚙"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.AccentForeground}"
+                                       FontSize="20"
+                                       FontWeight="Black" />
+                        </Border>
+                    </Grid>
+                </Border>
+                <TextBlock Text="没有配置文件,请先添加配置文件"
+                           Foreground="{DynamicResource Brush.TextSecondary}"
+                           FontSize="16"
+                           FontWeight="SemiBold" />
+            </StackPanel>
+        </Grid>
+
+        <ScrollViewer IsVisible="{Binding HasConfigProfiles}">
+            <ItemsControl ItemsSource="{Binding ConfigProfiles}"
+                          Margin="16,16,16,96">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ConfigProfileItem">
+                        <Border Classes="profileCard"
+                                Classes.active="{Binding IsSelected}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,14">
+                            <Grid ColumnDefinitions="*,48">
+                                <Button Classes="profileRow"
+                                        Command="{Binding #Root.DataContext.SelectConfigProfileCommand}"
+                                        CommandParameter="{Binding}">
+                                    <Grid ColumnDefinitions="*,Auto"
+                                          ColumnSpacing="12">
+                                        <StackPanel Spacing="7"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Label}"
+                                                       Foreground="{DynamicResource Brush.TextPrimary}"
+                                                       FontSize="16"
+                                                       FontWeight="SemiBold"
+                                                       MaxLines="1"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <StackPanel Spacing="3">
+                                                <TextBlock Text="{Binding UpdateText}"
+                                                           Foreground="{DynamicResource Brush.TextSecondary}"
+                                                           FontSize="12"
+                                                           MaxLines="1" />
+                                                <TextBlock Text="{Binding Description}"
+                                                           Foreground="{DynamicResource Brush.TextMuted}"
+                                                           FontSize="12"
+                                                           MaxLines="1"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <Border Grid.Column="1"
+                                                Classes="profileTypeChip"
+                                                VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding TypeText}"
+                                                       Foreground="{DynamicResource Brush.Accent}"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold" />
+                                        </Border>
+                                    </Grid>
+                                </Button>
+
+                                <Button Grid.Column="1"
+                                        Classes="iconButton"
+                                        Width="40"
+                                        Height="40"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Content="⋮">
+                                    <Button.Flyout>
+                                        <MenuFlyout>
+                                            <MenuItem Header="编辑"
+                                                      Command="{Binding #Root.DataContext.EditConfigProfileCommand}"
+                                                      CommandParameter="{Binding}" />
+                                            <MenuItem Header="预览"
+                                                      Command="{Binding #Root.DataContext.PreviewConfigProfileCommand}"
+                                                      CommandParameter="{Binding}" />
+                                            <MenuItem Header="同步"
+                                                      IsVisible="{Binding IsUrl}"
+                                                      Command="{Binding #Root.DataContext.SyncConfigProfileCommand}"
+                                                      CommandParameter="{Binding}" />
+                                            <MenuItem Header="覆写"
+                                                      Command="{Binding #Root.DataContext.EditConfigProfileCommand}"
+                                                      CommandParameter="{Binding}" />
+                                            <MenuItem Header="复制链接"
+                                                      IsVisible="{Binding IsUrl}"
+                                                      Click="CopyProfileLinkClick" />
+                                            <MenuItem Header="导出文件"
+                                                      Click="ExportProfileFileClick" />
+                                            <MenuItem Header="删除"
+                                                      Command="{Binding #Root.DataContext.DeleteConfigProfileCommand}"
+                                                      CommandParameter="{Binding}" />
+                                        </MenuFlyout>
+                                    </Button.Flyout>
+                                </Button>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <Border IsVisible="{Binding IsAddProfilePanelVisible}"
+                Background="#99000000">
+            <Grid RowDefinitions="*,Auto">
+                <Button Background="Transparent"
+                        BorderBrush="Transparent"
+                        Command="{Binding HideAddProfilePanelCommand}" />
+
+                <Border Grid.Row="1"
+                        Classes="bottomSheet">
+                    <StackPanel>
+                        <Grid Height="48"
+                              ColumnDefinitions="48,*,48">
+                            <Button Classes="iconButton"
+                                    Content="‹"
+                                    IsVisible="{Binding IsAddProfileUrlInputVisible}"
+                                    Command="{Binding ShowAddProfilePanelCommand}" />
+                            <TextBlock Grid.Column="1"
+                                       Text="添加配置"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextPrimary}"
+                                       FontSize="18"
+                                       FontWeight="SemiBold" />
+                            <Button Grid.Column="2"
+                                    Classes="iconButton"
+                                    Content="×"
+                                    Command="{Binding HideAddProfilePanelCommand}" />
+                        </Grid>
+
+                        <StackPanel IsVisible="{Binding IsAddProfileMenuVisible}">
+                            <Button Classes="listItemButton"
+                                    Command="{Binding ShowQrCodeProfileCommand}">
+                                <Grid ColumnDefinitions="Auto,*"
+                                      ColumnSpacing="16">
+                                    <TextBlock Text="▦"
+                                               Width="32"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Brush.TextSecondary}"
+                                               FontSize="22" />
+                                    <StackPanel Grid.Column="1"
+                                                Spacing="3">
+                                        <TextBlock Text="二维码"
+                                                   Foreground="{DynamicResource Brush.TextPrimary}"
+                                                   FontSize="15" />
+                                        <TextBlock Text="扫描二维码获取配置文件"
+                                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                                   FontSize="12" />
+                                    </StackPanel>
+                                </Grid>
+                            </Button>
+                            <Button Classes="listItemButton"
+                                    Click="ImportProfileFileClick">
+                                <Grid ColumnDefinitions="Auto,*"
+                                      ColumnSpacing="16">
+                                    <TextBlock Text="⇧"
+                                               Width="32"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Brush.TextSecondary}"
+                                               FontSize="22" />
+                                    <StackPanel Grid.Column="1"
+                                                Spacing="3">
+                                        <TextBlock Text="文件"
+                                                   Foreground="{DynamicResource Brush.TextPrimary}"
+                                                   FontSize="15" />
+                                        <TextBlock Text="直接上传配置文件"
+                                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                                   FontSize="12" />
+                                    </StackPanel>
+                                </Grid>
+                            </Button>
+                            <Button Classes="listItemButton"
+                                    Command="{Binding ShowAddProfileUrlInputCommand}">
+                                <Grid ColumnDefinitions="Auto,*"
+                                      ColumnSpacing="16">
+                                    <TextBlock Text="☁"
+                                               Width="32"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Brush.TextSecondary}"
+                                               FontSize="20" />
+                                    <StackPanel Grid.Column="1"
+                                                Spacing="3">
+                                        <TextBlock Text="URL"
+                                                   Foreground="{DynamicResource Brush.TextPrimary}"
+                                                   FontSize="15" />
+                                        <TextBlock Text="通过URL获取配置文件"
+                                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                                   FontSize="12" />
+                                    </StackPanel>
+                                </Grid>
+                            </Button>
+                        </StackPanel>
+
+                        <StackPanel IsVisible="{Binding IsAddProfileUrlInputVisible}"
+                                    Margin="16,8,16,0"
+                                    Spacing="14">
+                            <TextBox Text="{Binding SubscriptionUrl}"
+                                     PlaceholderText="URL"
+                                     AcceptsReturn="False" />
+                            <Button Classes="primary"
+                                    HorizontalAlignment="Right"
+                                    Content="提交"
+                                    Command="{Binding ImportSubscriptionCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

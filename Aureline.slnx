@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="Aureline.Android/Aureline.Android.csproj">
+    <Deploy />
+  </Project>
+  <Project Path="Aureline.ClashRs.Android/Aureline.ClashRs.Android.csproj" />
+  <Project Path="Aureline.iOS/Aureline.iOS.csproj" />
+  <Project Path="Aureline.iOS.PacketTunnel/Aureline.iOS.PacketTunnel.csproj" />
+  <Project Path="Aureline.Meow.Android/Aureline.Meow.Android.csproj" />
+  <Project Path="Aureline/Aureline.csproj" />
+</Solution>

@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net$(AurelineDotNetVersion)-ios</TargetFramework>
+    <SupportedOSPlatformVersion>13.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsAppExtension>true</IsAppExtension>
+    <ApplicationId>com.embermoth.aureline.PacketTunnel</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <RuntimeIdentifiers>ios-arm64;iossimulator-arm64</RuntimeIdentifiers>
+    <CodesignEntitlements Condition="'$(AurelineDisableIosEntitlements)' == 'true'">EmptyEntitlements.plist</CodesignEntitlements>
+    <CodesignEntitlements Condition="'$(AurelineDisableIosEntitlements)' != 'true'">Entitlements.plist</CodesignEntitlements>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'iossimulator-arm64'">
+    <EnableCodeSigning>false</EnableCodeSigning>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(AurelineEnableNativeAot)' == 'true'">
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <TrimMode>full</TrimMode>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LibClashIosNativeArchive Condition="'$(LibClashIosNativeArchive)' == '' and '$(RuntimeIdentifier)' == 'ios-arm64'">NativeLibraries/ios/iphoneos-arm64/libclash.a</LibClashIosNativeArchive>
+    <LibClashIosNativeArchive Condition="'$(LibClashIosNativeArchive)' == '' and '$(RuntimeIdentifier)' == 'iossimulator-arm64'">NativeLibraries/ios/iphonesimulator/libclash.a</LibClashIosNativeArchive>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(LibClashIosNativeArchive)' != '' and Exists('$(LibClashIosNativeArchive)')">
+    <NativeReference Include="$(LibClashIosNativeArchive)">
+      <Kind>Static</Kind>
+      <ForceLoad>true</ForceLoad>
+      <SmartLink>true</SmartLink>
+    </NativeReference>
+  </ItemGroup>
+</Project>

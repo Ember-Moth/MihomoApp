@@ -1,8 +1,0 @@
-<Solution>
-  <Project Path="Mihomo.Android/Mihomo.Android.csproj">
-    <Deploy />
-  </Project>
-  <Project Path="Mihomo.iOS/Mihomo.iOS.csproj" />
-  <Project Path="Mihomo.iOS.PacketTunnel/Mihomo.iOS.PacketTunnel.csproj" />
-  <Project Path="Mihomo/Mihomo.csproj" />
-</Solution>

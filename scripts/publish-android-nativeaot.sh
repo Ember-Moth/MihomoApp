@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 framework="net11.0-android"
 configuration="Release"
-package_name="com.embermoth.mihomo"
+package_name="com.embermoth.aureline"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -15,13 +15,13 @@ else
 fi
 
 for runtime_id in "${runtime_ids[@]}"; do
-  output_root="$repo_root/Mihomo.Android/bin/$configuration/$framework/$runtime_id"
-  intermediate_root="$repo_root/Mihomo.Android/obj/$configuration/$framework/$runtime_id"
+  output_root="$repo_root/Aureline.Android/bin/$configuration/$framework/$runtime_id"
+  intermediate_root="$repo_root/Aureline.Android/obj/$configuration/$framework/$runtime_id"
   apk_path="$output_root/publish/$package_name-Signed.apk"
 
   rm -rf "$output_root" "$intermediate_root"
 
-  "$repo_root/scripts/dotnet11.sh" publish "$repo_root/Mihomo.Android/Mihomo.Android.csproj" \
+  "$repo_root/scripts/dotnet11.sh" publish "$repo_root/Aureline.Android/Aureline.Android.csproj" \
     -c "$configuration" \
     -f "$framework" \
     -r "$runtime_id" \

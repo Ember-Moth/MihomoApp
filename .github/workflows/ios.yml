@@ -6,26 +6,26 @@ on:
     branches:
       - main
     paths:
-      - "Mihomo/**"
-      - "Mihomo.iOS/**"
-      - "Mihomo.iOS.PacketTunnel/**"
+      - "Aureline/**"
+      - "Aureline.iOS/**"
+      - "Aureline.iOS.PacketTunnel/**"
       - "Directory.Packages.props"
       - "Directory.Build.props"
       - "global.json"
-      - "Mihomo.slnx"
+      - "Aureline.slnx"
       - ".gitmodules"
       - "libclash"
       - "libclash/**"
       - ".github/workflows/ios.yml"
   pull_request:
     paths:
-      - "Mihomo/**"
-      - "Mihomo.iOS/**"
-      - "Mihomo.iOS.PacketTunnel/**"
+      - "Aureline/**"
+      - "Aureline.iOS/**"
+      - "Aureline.iOS.PacketTunnel/**"
       - "Directory.Packages.props"
       - "Directory.Build.props"
       - "global.json"
-      - "Mihomo.slnx"
+      - "Aureline.slnx"
       - ".gitmodules"
       - "libclash"
       - "libclash/**"
@@ -33,7 +33,7 @@ on:
 
 jobs:
   build:
-    name: Build Mihomo iOS
+    name: Build Aureline iOS
     runs-on: macos-26
     permissions:
       contents: read
@@ -73,26 +73,26 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_SIMULATOR_X64=0 \
-          OUT_DIR="$PWD/Mihomo.iOS.PacketTunnel/NativeLibraries/ios" \
+          OUT_DIR="$PWD/Aureline.iOS.PacketTunnel/NativeLibraries/ios" \
           bash libclash/scripts/build-carchive-ios.sh
 
       - name: Restore device
-        run: dotnet restore Mihomo.iOS/Mihomo.iOS.csproj -r ios-arm64
+        run: dotnet restore Aureline.iOS/Aureline.iOS.csproj -r ios-arm64
 
       - name: Build unsigned iOS device app
         run: |
-          dotnet build Mihomo.iOS/Mihomo.iOS.csproj \
+          dotnet build Aureline.iOS/Aureline.iOS.csproj \
             -c Release \
             -f net11.0-ios \
             -r ios-arm64 \
-            -p:LibClashIosNativeArchive="$PWD/Mihomo.iOS.PacketTunnel/NativeLibraries/ios/iphoneos-arm64/libclash.a" \
+            -p:LibClashIosNativeArchive="$PWD/Aureline.iOS.PacketTunnel/NativeLibraries/ios/iphoneos-arm64/libclash.a" \
             -p:Platform=iPhone \
             -p:SdkIsSimulator=false \
             -p:_SdkIsSimulator=false \
             -p:CodesignKey=- \
             -p:CodesignProvision= \
-            -p:MihomoDisableIosEntitlements=true \
-            -p:MihomoEnableNativeAot=false \
+            -p:AurelineDisableIosEntitlements=true \
+            -p:AurelineEnableNativeAot=false \
             -p:PublishAot=false \
             -p:PublishReadyToRun=false \
             -p:RunAOTCompilation=false \
@@ -113,11 +113,11 @@ jobs:
                 break
                 ;;
             esac
-          done < <(find Mihomo.iOS/bin -type d -name '*.app' 2>/dev/null | sort)
+          done < <(find Aureline.iOS/bin -type d -name '*.app' 2>/dev/null | sort)
 
           if [[ -z "$device_app" ]]; then
             echo "No ios-arm64 .app bundle found" >&2
-            find Mihomo.iOS/bin -type d -name '*.app' -print 2>/dev/null || true
+            find Aureline.iOS/bin -type d -name '*.app' -print 2>/dev/null || true
             exit 1
           fi
 
@@ -126,9 +126,9 @@ jobs:
           ditto "$device_app" "artifacts/ios-unsigned/Payload/$(basename "$device_app")"
           (
             cd artifacts/ios-unsigned
-            zip -qry Mihomo-ios-arm64-unsigned.ipa Payload
+            zip -qry Aureline-ios-arm64-unsigned.ipa Payload
           )
-          shasum -a 256 artifacts/ios-unsigned/Mihomo-ios-arm64-unsigned.ipa \
+          shasum -a 256 artifacts/ios-unsigned/Aureline-ios-arm64-unsigned.ipa \
             > artifacts/ios-unsigned/SHA256SUMS
 
       - name: Clean iOS intermediates before simulator build
@@ -137,19 +137,19 @@ jobs:
           set -euo pipefail
 
           rm -rf \
-            Mihomo.iOS/obj/Release/net11.0-ios \
-            Mihomo.iOS.PacketTunnel/obj/Release/net11.0-ios
+            Aureline.iOS/obj/Release/net11.0-ios \
+            Aureline.iOS.PacketTunnel/obj/Release/net11.0-ios
 
       - name: Restore simulator
-        run: dotnet restore Mihomo.iOS/Mihomo.iOS.csproj -r iossimulator-arm64
+        run: dotnet restore Aureline.iOS/Aureline.iOS.csproj -r iossimulator-arm64
 
       - name: Build unsigned iOS simulator app
         run: |
-          dotnet build Mihomo.iOS/Mihomo.iOS.csproj \
+          dotnet build Aureline.iOS/Aureline.iOS.csproj \
             -c Release \
             -f net11.0-ios \
             -r iossimulator-arm64 \
-            -p:LibClashIosNativeArchive="$PWD/Mihomo.iOS.PacketTunnel/NativeLibraries/ios/iphonesimulator/libclash.a" \
+            -p:LibClashIosNativeArchive="$PWD/Aureline.iOS.PacketTunnel/NativeLibraries/ios/iphonesimulator/libclash.a" \
             -p:EnableCodeSigning=false \
             -p:UseSharedCompilation=false \
             -nr:false
@@ -157,14 +157,14 @@ jobs:
       - name: Upload iOS build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mihomo-ios
+          name: aureline-ios
           path: |
-            artifacts/ios-unsigned/Mihomo-ios-arm64-unsigned.ipa
+            artifacts/ios-unsigned/Aureline-ios-arm64-unsigned.ipa
             artifacts/ios-unsigned/SHA256SUMS
-            Mihomo.iOS/bin/iPhone/Release/net11.0-ios/ios-arm64/**/*.app
-            Mihomo.iOS/bin/Release/net11.0-ios/ios-arm64/**/*.app
-            Mihomo.iOS/bin/iPhoneSimulator/Release/net11.0-ios/iossimulator-arm64/**/*.app
-            Mihomo.iOS/bin/Release/net11.0-ios/iossimulator-arm64/publish/**/*.app
-            Mihomo.iOS/bin/Release/net11.0-ios/iossimulator-arm64/**/*.app
+            Aureline.iOS/bin/iPhone/Release/net11.0-ios/ios-arm64/**/*.app
+            Aureline.iOS/bin/Release/net11.0-ios/ios-arm64/**/*.app
+            Aureline.iOS/bin/iPhoneSimulator/Release/net11.0-ios/iossimulator-arm64/**/*.app
+            Aureline.iOS/bin/Release/net11.0-ios/iossimulator-arm64/publish/**/*.app
+            Aureline.iOS/bin/Release/net11.0-ios/iossimulator-arm64/**/*.app
           if-no-files-found: warn
           retention-days: 14

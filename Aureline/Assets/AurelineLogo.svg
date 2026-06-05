@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Aureline logo">
+  <defs>
+    <linearGradient id="bg" x1="128" y1="96" x2="896" y2="928" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#13232b" />
+      <stop offset="0.48" stop-color="#0e171d" />
+      <stop offset="1" stop-color="#11131a" />
+    </linearGradient>
+    <linearGradient id="line" x1="254" y1="760" x2="782" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#54d7c8" />
+      <stop offset="0.52" stop-color="#f1d36a" />
+      <stop offset="1" stop-color="#ff8f4f" />
+    </linearGradient>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="28" result="blur" />
+      <feColorMatrix in="blur" type="matrix"
+        values="1 0 0 0 0.22  0 1 0 0 0.86  0 0 1 0 0.78  0 0 0 0.62 0" />
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" fill="#11131a" />
+  <rect width="1024" height="1024" rx="220" fill="url(#bg)" />
+  <path d="M192 764C302 650 392 514 478 352C507 297 546 247 604 224C668 198 742 220 790 274"
+    fill="none" stroke="#22343b" stroke-width="126" stroke-linecap="round" stroke-linejoin="round" opacity="0.66" />
+  <path d="M224 746L456 350C488 296 528 232 604 224C680 216 736 266 792 344L854 430"
+    fill="none" stroke="url(#line)" stroke-width="94" stroke-linecap="round" stroke-linejoin="round"
+    filter="url(#softGlow)" />
+  <path d="M362 584H684"
+    fill="none" stroke="#f8f2cc" stroke-width="72" stroke-linecap="round" opacity="0.94" />
+  <circle cx="224" cy="746" r="68" fill="#56d8c9" />
+  <circle cx="224" cy="746" r="32" fill="#f9fffa" opacity="0.84" />
+  <circle cx="604" cy="224" r="70" fill="#f3d26a" />
+  <circle cx="604" cy="224" r="30" fill="#fff9d9" opacity="0.86" />
+  <circle cx="854" cy="430" r="64" fill="#ff9150" />
+  <circle cx="854" cy="430" r="28" fill="#fff1df" opacity="0.84" />
+  <path d="M198 806C302 884 510 908 692 812C786 763 858 688 900 594"
+    fill="none" stroke="#2e4b55" stroke-width="34" stroke-linecap="round" opacity="0.5" />
+</svg>
