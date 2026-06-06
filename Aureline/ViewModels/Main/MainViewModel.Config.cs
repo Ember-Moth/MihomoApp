@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.Input;
+using Aureline.Services.Storage;
 
 namespace Aureline.ViewModels;
 
@@ -73,15 +74,67 @@ public partial class MainViewModel
             profile.IsUrl && string.Equals(profile.Url, url, StringComparison.OrdinalIgnoreCase));
         ConfigPath = existingProfile?.FilePath ?? BuildManagedProfilePath(label);
 
+        ConfigContent = await DownloadSubscriptionAsync(url);
+        ApplySettingsFromConfigContent(ConfigContent);
+        SaveConfigContent();
+        await UpsertCurrentProfileAsync(ConfigProfileType.Url, label, url);
+        LastMessage = "订阅已导入并保存";
+    }
+
+    private async Task RefreshSubscriptionProfileAsync(ConfigProfileItem profile)
+    {
+        if (!profile.IsUrl)
+        {
+            return;
+        }
+
+        var currentProfile = ConfigProfiles.FirstOrDefault(item => item.Id == profile.Id) ?? profile;
+        var path = string.IsNullOrWhiteSpace(currentProfile.FilePath)
+            ? BuildManagedProfilePath(currentProfile.Label)
+            : currentProfile.FilePath;
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        var wasSelected = SelectedConfigProfile?.Id == currentProfile.Id;
+        var content = await DownloadSubscriptionAsync(currentProfile.Url);
+        if (wasSelected)
+        {
+            ConfigPath = path;
+            ConfigContent = content;
+            ApplySettingsFromConfigContent(ConfigContent);
+            SaveConfigContent();
+        }
+        else
+        {
+            File.WriteAllText(path, content);
+        }
+
+        var sortOrder = Math.Max(0, ConfigProfiles.IndexOf(currentProfile));
+        var storedProfile = new StoredConfigProfile(
+            currentProfile.Id,
+            "url",
+            currentProfile.Label,
+            path,
+            currentProfile.Url,
+            DateTimeOffset.Now,
+            sortOrder,
+            wasSelected);
+
+        await _stateStore.UpsertProfileAsync(storedProfile);
+        await ReloadConfigProfilesAsync(SelectedConfigProfile?.Id);
+        FocusedConfigProfile = ConfigProfiles.FirstOrDefault(item => item.Id == currentProfile.Id) ?? SelectedConfigProfile;
+    }
+
+    private async Task<string> DownloadSubscriptionAsync(string url)
+    {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.UserAgent.ParseAdd("clash");
         using var response = await _httpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
-
-        ConfigContent = await response.Content.ReadAsStringAsync();
-        SaveConfigContent();
-        await UpsertCurrentProfileAsync(ConfigProfileType.Url, label, url);
-        LastMessage = "订阅已导入并保存";
+        return await response.Content.ReadAsStringAsync();
     }
 
     private int CurrentMixedPort()
@@ -125,6 +178,11 @@ public partial class MainViewModel
             Directory.CreateDirectory(directory);
         }
 
+        if (string.IsNullOrWhiteSpace(ConfigContent))
+        {
+            ConfigContent = DefaultConfigText(CurrentMixedPort());
+        }
+
         ConfigContent = ApplyConfigSettings(ConfigContent);
         File.WriteAllText(path, ConfigContent);
     }
@@ -146,11 +204,17 @@ public partial class MainViewModel
 
             if (IsRunning)
             {
-                var applied = await _runtime.SetModeAsync(OutboundMode);
-                LastMessage = applied
-                    ? $"出站模式: {OutboundModeTitle}"
-                    : $"出站模式切换失败: {OutboundModeTitle}";
-                await RefreshProxiesCoreAsync();
+                if (CoreCapabilities.SupportsModeSwitch)
+                {
+                    var applied = await _runtime.SetModeAsync(OutboundMode);
+                    LastMessage = applied
+                        ? $"出站模式: {OutboundModeTitle}"
+                        : $"出站模式切换失败: {OutboundModeTitle}";
+                    await RefreshProxiesCoreAsync();
+                    return;
+                }
+
+                await ApplyRunningRuntimeRestartAsync("出站模式", needsConfigSave: false);
                 return;
             }
 

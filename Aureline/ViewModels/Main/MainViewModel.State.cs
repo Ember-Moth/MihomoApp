@@ -210,6 +210,7 @@ public partial class MainViewModel
         }
 
         SelectedConfigProfile = selected ?? ConfigProfiles.FirstOrDefault();
+        FocusedConfigProfile = SelectedConfigProfile ?? ConfigProfiles.FirstOrDefault();
         UpdateConfigProfileState();
     }
 
@@ -246,9 +247,15 @@ public partial class MainViewModel
         OnPropertyChanged(nameof(HasConfigProfiles));
         OnPropertyChanged(nameof(MissingConfigProfiles));
         OnPropertyChanged(nameof(IsConfigPageWithProfiles));
+        OnPropertyChanged(nameof(ConfigProfileCountText));
+        NotifyConfigProfileDetailProperties();
         SyncConfigProfilesCommand.NotifyCanExecuteChanged();
         SortConfigProfilesCommand.NotifyCanExecuteChanged();
         DeleteSelectedProfileCommand.NotifyCanExecuteChanged();
+        ActivateFocusedConfigProfileCommand.NotifyCanExecuteChanged();
+        ValidateFocusedConfigProfileCommand.NotifyCanExecuteChanged();
+        SyncFocusedConfigProfileCommand.NotifyCanExecuteChanged();
+        DeleteFocusedConfigProfileCommand.NotifyCanExecuteChanged();
     }
 
     private async Task BootstrapProfileIfNeededAsync()
@@ -320,11 +327,17 @@ public partial class MainViewModel
         await RunAsync(async () =>
         {
             var urlProfiles = ConfigProfiles.Where(profile => profile.IsUrl).ToArray();
+            var restartRequired = false;
             foreach (var profile in urlProfiles)
             {
-                SubscriptionUrl = profile.Url;
-                ConfigPath = profile.FilePath;
-                await ImportSubscriptionCoreAsync(profile.Url, profile.Label);
+                restartRequired |= SelectedConfigProfile?.Id == profile.Id;
+                await RefreshSubscriptionProfileAsync(profile);
+            }
+
+            LastMessage = urlProfiles.Length == 0 ? "没有可同步的远程订阅" : $"已同步 {urlProfiles.Length} 个订阅";
+            if (restartRequired)
+            {
+                await ApplyRunningRuntimeRestartAsync("订阅配置", needsConfigSave: false);
             }
         });
     }
@@ -386,20 +399,87 @@ public partial class MainViewModel
     }
 
     [RelayCommand]
-    private void ShowQrCodeProfile()
-    {
-        LastMessage = "二维码扫描暂未接入，请使用 URL 或文件导入";
-        IsAddProfilePanelVisible = true;
-        IsAddProfileUrlInputVisible = false;
-    }
-
-    [RelayCommand]
     private void SelectConfigProfile(ConfigProfileItem? profile)
     {
         if (profile != null)
         {
             SelectedConfigProfile = profile;
         }
+    }
+
+    [RelayCommand]
+    private void OpenConfigProfileDetail(ConfigProfileItem? profile)
+    {
+        if (profile != null)
+        {
+            FocusedConfigProfile = profile;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanActivateFocusedConfigProfile))]
+    private void ActivateFocusedConfigProfile()
+    {
+        if (FocusedConfigProfile == null || FocusedConfigProfileIsActive)
+        {
+            return;
+        }
+
+        SelectedConfigProfile = FocusedConfigProfile;
+        LastMessage = $"已启用配置: {FocusedConfigProfile.Label}";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanValidateFocusedConfigProfile))]
+    private async Task ValidateFocusedConfigProfileAsync()
+    {
+        if (FocusedConfigProfile == null)
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            var message = await _runtime.ValidateConfigAsync(FocusedConfigProfile.FilePath);
+            LastMessage = string.IsNullOrWhiteSpace(message)
+                ? $"配置有效: {FocusedConfigProfile.Label}"
+                : message;
+        });
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSyncFocusedConfigProfile))]
+    private async Task SyncFocusedConfigProfileAsync()
+    {
+        if (FocusedConfigProfile?.IsUrl != true)
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            var restartRequired = SelectedConfigProfile?.Id == FocusedConfigProfile.Id;
+            await RefreshSubscriptionProfileAsync(FocusedConfigProfile);
+            LastMessage = $"订阅已更新: {FocusedConfigProfile?.Label ?? "配置"}";
+            if (restartRequired)
+            {
+                await ApplyRunningRuntimeRestartAsync("订阅配置", needsConfigSave: false);
+            }
+        });
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUseFocusedConfigProfile))]
+    private async Task DeleteFocusedConfigProfileAsync()
+    {
+        if (FocusedConfigProfile == null)
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            var profile = FocusedConfigProfile;
+            await _stateStore.DeleteProfileAsync(profile.Id);
+            await ReloadConfigProfilesAsync(null);
+            LastMessage = $"配置已删除: {profile.Label}";
+        });
     }
 
     [RelayCommand]
@@ -412,9 +492,13 @@ public partial class MainViewModel
 
         await RunAsync(async () =>
         {
-            SubscriptionUrl = profile.Url;
-            ConfigPath = profile.FilePath;
-            await ImportSubscriptionCoreAsync(profile.Url, profile.Label);
+            var restartRequired = SelectedConfigProfile?.Id == profile.Id;
+            await RefreshSubscriptionProfileAsync(profile);
+            LastMessage = $"订阅已更新: {profile.Label}";
+            if (restartRequired)
+            {
+                await ApplyRunningRuntimeRestartAsync("订阅配置", needsConfigSave: false);
+            }
         });
     }
 
@@ -435,33 +519,6 @@ public partial class MainViewModel
     }
 
     [RelayCommand]
-    private void PreviewConfigProfile(ConfigProfileItem? profile)
-    {
-        if (profile == null)
-        {
-            return;
-        }
-
-        SelectedConfigProfile = profile;
-        LoadConfigContent();
-        LastMessage = $"已载入预览: {profile.Label}";
-    }
-
-    [RelayCommand]
-    private void EditConfigProfile(ConfigProfileItem? profile)
-    {
-        if (profile == null)
-        {
-            return;
-        }
-
-        SelectedConfigProfile = profile;
-        CurrentPage = "tools";
-        CurrentToolPage = "advanced";
-        LastMessage = $"编辑: {profile.Label}";
-    }
-
-    [RelayCommand]
     private async Task ImportProfileFileAsync(PickedProfileFile? file)
     {
         if (file == null || string.IsNullOrWhiteSpace(file.Content))
@@ -474,6 +531,7 @@ public partial class MainViewModel
             var label = ProfileLabelFromPath(file.Name);
             ConfigPath = BuildManagedProfilePath(label);
             ConfigContent = file.Content;
+            ApplySettingsFromConfigContent(ConfigContent);
             SaveConfigContent();
             await UpsertCurrentProfileAsync(ConfigProfileType.File, label, string.Empty);
             IsAddProfilePanelVisible = false;
@@ -489,6 +547,7 @@ public partial class MainViewModel
 
     partial void OnConfigPathChanged(string value)
     {
+        OnPropertyChanged(nameof(CurrentConfigDisplayName));
         QueueStateSave();
     }
 

@@ -27,8 +27,10 @@ public partial class MainViewModel : ViewModelBase
     private DateTimeOffset? _startedAt;
     private string _pendingRuntimeRestartReason = string.Empty;
     private bool _pendingRuntimeRestartNeedsConfigSave;
+    private long _proxySelectionRevision;
     private readonly Queue<double> _uploadSpeedSampleBuffer = new();
     private readonly Queue<double> _downloadSpeedSampleBuffer = new();
+    private readonly Stack<string> _primaryPageBackStack = new();
 
     public MainViewModel()
     {
@@ -64,10 +66,14 @@ public partial class MainViewModel : ViewModelBase
             await RestartRuntimeForPendingChangeAsync();
         };
 
+        CoreCapabilities = _runtime.Capabilities;
+        RuntimeState = _runtime.RuntimeState;
+        RebuildShellNavigationItems();
         ApplyStatus(_runtime.Status);
         LoadConfigContent();
         ApplyThemeMode();
         ResetSpeedSamples();
+        AddRuntimeEvent(LastMessage);
         _stateReadyTask = InitializePersistentStateAsync();
         _ = RefreshNetworkDetectionAsync();
     }
@@ -83,6 +89,10 @@ public partial class MainViewModel : ViewModelBase
     public ObservableCollection<InstalledApplicationItem> InstalledApplications { get; } = [];
 
     public ObservableCollection<InstalledApplicationItem> VisibleInstalledApplications { get; } = [];
+
+    public ObservableCollection<ShellNavigationItem> ShellNavigationItems { get; } = [];
+
+    public ObservableCollection<RuntimeEventItem> RecentRuntimeEvents { get; } = [];
 
     public IReadOnlyList<string> ProxySortOptions { get; } = ["配置顺序", "按延迟", "按名称"];
 
@@ -102,6 +112,10 @@ public partial class MainViewModel : ViewModelBase
     [NotifyCanExecuteChangedFor(nameof(ReloadConfigCommand))]
     [NotifyCanExecuteChangedFor(nameof(ResetConfigCommand))]
     [NotifyCanExecuteChangedFor(nameof(ImportSubscriptionCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ActivateFocusedConfigProfileCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ValidateFocusedConfigProfileCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SyncFocusedConfigProfileCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteFocusedConfigProfileCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshProxiesCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshSelectedGroupCommand))]
     [NotifyCanExecuteChangedFor(nameof(TestSelectedGroupDelayCommand))]
@@ -116,6 +130,12 @@ public partial class MainViewModel : ViewModelBase
     [NotifyCanExecuteChangedFor(nameof(TestSelectedGroupDelayCommand))]
     [NotifyCanExecuteChangedFor(nameof(TestProxyDelayCommand))]
     private bool _isRunning;
+
+    [ObservableProperty]
+    private CoreCapabilities _coreCapabilities = CoreCapabilities.Unsupported();
+
+    [ObservableProperty]
+    private RuntimeState _runtimeState = RuntimeState.Unsupported;
 
     [ObservableProperty]
     private string _currentPage = "overview";
@@ -133,6 +153,7 @@ public partial class MainViewModel : ViewModelBase
     private string _configPath = string.Empty;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ImportSubscriptionCommand))]
     private string _subscriptionUrl = string.Empty;
 
     [ObservableProperty]
@@ -191,6 +212,13 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private ConfigProfileItem? _selectedConfigProfile;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ActivateFocusedConfigProfileCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ValidateFocusedConfigProfileCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SyncFocusedConfigProfileCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteFocusedConfigProfileCommand))]
+    private ConfigProfileItem? _focusedConfigProfile;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(TestSelectedGroupDelayCommand))]
@@ -322,15 +350,56 @@ public partial class MainViewModel : ViewModelBase
 
     public bool IsConfigPageWithProfiles => IsConfigPage && HasConfigProfiles;
 
-    public bool IsProxyNavigationVisible => IsRunning;
+    public bool IsProxyNavigationVisible => IsRunning && CoreCapabilities.SupportsProxyGroups;
 
     public bool IsCompactNavigationVisible => !IsProxyNavigationVisible;
+
+    public bool CanUseProxyGroups => IsRunning && CoreCapabilities.SupportsProxyGroups;
+
+    public bool CanSelectProxyNodes => IsRunning && CoreCapabilities.SupportsProxySelection;
+
+    public bool CanTestProxyDelayCapability => IsRunning && CoreCapabilities.SupportsProxyDelayTest;
+
+    public bool CanRunGroupHealthCheck => IsRunning && CoreCapabilities.SupportsGroupHealthCheck;
+
+    public bool CanReadTrafficTelemetry => IsRunning && CoreCapabilities.SupportsTraffic;
+
+    public bool CanReadConnectionTelemetry => IsRunning && CoreCapabilities.SupportsConnectionCount;
+
+    public bool CanSwitchOutboundModeAtRuntime => IsRunning && CoreCapabilities.SupportsModeSwitch;
+
+    public bool CanCloseRuntimeConnections => IsRunning && CoreCapabilities.SupportsCloseConnections;
+
+    public bool CanConfigureAccessControl =>
+        CoreCapabilities.SupportsAccessControl && CoreCapabilities.SupportsInstalledApplications;
+
+    public bool CanConfigureSystemProxy => CoreCapabilities.SupportsSystemProxy;
+
+    public bool CanConfigureDnsHijacking => CoreCapabilities.SupportsDnsHijacking;
+
+    public bool CanConfigureExternalController => CoreCapabilities.SupportsExternalController;
+
+    public bool CanConfigureGeodataMemoryMode => CoreCapabilities.SupportsGeodataMemoryMode;
+
+    public string CoreRuntimeName => CoreCapabilities.RuntimeName;
+
+    public string RuntimeCapabilitySummary => CoreCapabilities.CanStart
+        ? $"{CoreCapabilities.RuntimeName} · {CoreCapabilities.ControlPlane}"
+        : CoreCapabilities.RuntimeName;
+
+    public string OverviewStatusSummary => StateText switch
+    {
+        nameof(ClashRunState.Starting) => "正在准备 VPN 与代理服务",
+        nameof(ClashRunState.Error) => "启动失败，请检查配置或日志",
+        _ => IsRunning ? "VPN 代理运行中" : "点击启动接管设备网络"
+    };
 
     public bool CanNavigateBack =>
         IsAddProfilePanelVisible ||
         IsProxySearchVisible ||
         IsProxyGroupListVisible ||
         IsToolsPage && !string.IsNullOrWhiteSpace(CurrentToolPage) ||
+        _primaryPageBackStack.Count > 0 ||
         !IsOverviewPage;
 
     public bool IsAppBarBackVisible =>
@@ -341,13 +410,73 @@ public partial class MainViewModel : ViewModelBase
 
     public bool IsAddProfileMenuVisible => IsAddProfilePanelVisible && !IsAddProfileUrlInputVisible;
 
+    public bool CanShowAddProfileButton => !IsAddProfilePanelVisible;
+
+    public bool IsConfigAddActionVisible => IsConfigPage && !IsAddProfilePanelVisible;
+
     public string PublicIpCountryMark => CountryCodeToEmoji(PublicIpCountryCode);
 
     public string NetworkDetectionText => IsNetworkDetectionLoading ? "检测中" : PublicIp;
 
-    public string VpnIntranetAddress => EnableIpv6
-        ? "172.19.0.1 / fdfe:dcba:9876::1"
-        : "172.19.0.1";
+    public string NetworkDetectionStateText
+    {
+        get
+        {
+            if (IsNetworkDetectionLoading)
+            {
+                return "检测中";
+            }
+
+            return IsNetworkDetectionFailed ? "检测失败" : "出口地址";
+        }
+    }
+
+    public string NetworkDetectionDetailText
+    {
+        get
+        {
+            if (IsNetworkDetectionLoading)
+            {
+                return IsRunning ? "正在通过代理检测出口" : "正在直连检测出口";
+            }
+
+            if (IsNetworkDetectionFailed)
+            {
+                return "请求超时，点击刷新重试";
+            }
+
+            var mark = PublicIpCountryMark;
+            return string.IsNullOrWhiteSpace(mark) || mark == "⌁"
+                ? PublicIp
+                : $"{mark} {PublicIp}";
+        }
+    }
+
+    public string NetworkDetectionRouteText => IsRunning ? "代理路径" : "直连路径";
+
+    public bool IsNetworkDetectionFailed =>
+        !IsNetworkDetectionLoading &&
+        PublicIp.Equals("Timeout", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsNetworkDetectionReady =>
+        !IsNetworkDetectionLoading &&
+        !IsNetworkDetectionFailed &&
+        !string.IsNullOrWhiteSpace(PublicIp);
+
+    public string VpnIntranetAddress
+    {
+        get
+        {
+            if (!RuntimeState.IsRunning || !RuntimeState.TunEnabled)
+            {
+                return "未分配";
+            }
+
+            return RuntimeState.Ipv6Enabled
+                ? "172.19.0.1 / fdfe:dcba:9876::1"
+                : "172.19.0.1";
+        }
+    }
 
     public string ThemeModeText => IsDarkTheme ? "深色" : "浅色";
 
@@ -388,17 +517,13 @@ public partial class MainViewModel : ViewModelBase
 
     public bool IsBasicConfigToolPage => IsToolsPage && CurrentToolPage == "basic";
 
-    public bool IsAdvancedConfigToolPage => IsToolsPage && CurrentToolPage == "advanced";
-
     public bool IsNetworkConfigToolPage => IsToolsPage && CurrentToolPage == "network";
 
     public bool IsDnsConfigToolPage => IsToolsPage && CurrentToolPage == "dns";
 
-    public bool IsRulesConfigToolPage => IsToolsPage && CurrentToolPage == "rules";
-
-    public bool IsScriptsConfigToolPage => IsToolsPage && CurrentToolPage == "scripts";
-
     public bool IsApplicationSettingsToolPage => IsToolsPage && CurrentToolPage == "application";
+
+    public bool IsLogsToolPage => IsToolsPage && CurrentToolPage == "logs";
 
     public bool IsDisclaimerToolPage => IsToolsPage && CurrentToolPage == "disclaimer";
 
@@ -411,12 +536,10 @@ public partial class MainViewModel : ViewModelBase
         "backup" => "备份与恢复",
         "access" => "访问控制",
         "basic" => "基本配置",
-        "advanced" => "进阶配置",
         "network" => "网络",
         "dns" => "DNS",
-        "rules" => "规则",
-        "scripts" => "脚本",
         "application" => "应用程序",
+        "logs" => "日志",
         "disclaimer" => "免责声明",
         "about" => "关于",
         _ => "工具"
@@ -439,10 +562,10 @@ public partial class MainViewModel : ViewModelBase
     public string PageTitle => CurrentPage switch
     {
         "profiles" => "订阅",
-        "proxies" => "代理",
+        "proxies" => "策略",
         "config" => "配置",
         "tools" => ToolPageTitle,
-        _ => "仪表盘"
+        _ => "总览"
     };
 
     public string PageSubtitle => CurrentPage switch
@@ -450,7 +573,7 @@ public partial class MainViewModel : ViewModelBase
         "profiles" => "远程配置与本地文件",
         "proxies" => ProxySummary,
         "config" => "订阅和本地配置文件",
-        "tools" => string.IsNullOrWhiteSpace(CurrentToolPage) ? "工具和设置" : "FlClash 风格设置页",
+        "tools" => string.IsNullOrWhiteSpace(CurrentToolPage) ? "工具和诊断" : ToolPageTitle,
         _ => RunningStateText
     };
 
@@ -465,11 +588,15 @@ public partial class MainViewModel : ViewModelBase
         _ => IsRunning ? $"已运行 {RunningDuration}" : "未启动"
     };
 
-    public string ProxySummary => ProxyGroups.Count == 0 ? "无策略组" : $"{ProxyGroups.Count} 个策略组";
+    public string ProxySummary => CoreCapabilities.SupportsProxyGroups
+        ? ProxyGroups.Count == 0 ? "无策略组" : $"{ProxyGroups.Count} 个策略组"
+        : "当前核心不支持策略组";
 
     public string SelectedGroupTitle => SelectedGroup?.Name ?? "未选择策略组";
 
-    public string SelectedGroupSummary => SelectedGroup?.Summary ?? "启动后刷新策略组";
+    public string SelectedGroupSummary => CoreCapabilities.SupportsProxyGroups
+        ? SelectedGroup?.Summary ?? "启动后刷新策略组"
+        : "当前核心不支持策略组";
 
     public string SelectedGroupNow => string.IsNullOrWhiteSpace(SelectedGroup?.Now) ? "-" : SelectedGroup.Now;
 
@@ -487,9 +614,76 @@ public partial class MainViewModel : ViewModelBase
 
     public bool MissingConfigProfiles => ConfigProfiles.Count == 0;
 
+    public bool HasFocusedConfigProfile => FocusedConfigProfile != null;
+
+    public bool MissingFocusedConfigProfile => FocusedConfigProfile == null;
+
+    public string ConfigProfileCountText => ConfigProfiles.Count == 0
+        ? "无配置源"
+        : $"{ConfigProfiles.Count} 个配置源";
+
+    public string CurrentConfigProfileTitle => SelectedConfigProfile?.Label ?? "未启用配置";
+
+    public string CurrentConfigDisplayName
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(SelectedConfigProfile?.Label))
+            {
+                return SelectedConfigProfile.Label;
+            }
+
+            var path = ConfigPath.Trim();
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return "未启用配置";
+            }
+
+            var fileName = Path.GetFileNameWithoutExtension(path);
+            if (!string.IsNullOrWhiteSpace(fileName))
+            {
+                return fileName;
+            }
+
+            fileName = Path.GetFileName(path);
+            return string.IsNullOrWhiteSpace(fileName) ? "默认配置" : fileName;
+        }
+    }
+
+    public string CurrentConfigProfileSourceText => SelectedConfigProfile?.SourceText ?? "导入配置后可启用";
+
+    public string CurrentConfigProfileUpdatedText => SelectedConfigProfile?.UpdateText ?? "无更新时间";
+
+    public string CurrentConfigProfileDescription => SelectedConfigProfile?.Description ?? "还没有可用的配置源";
+
+    public bool CurrentConfigProfileIsUrl => SelectedConfigProfile?.IsUrl == true;
+
+    public string FocusedConfigProfileTitle => FocusedConfigProfile?.Label ?? "未选择配置";
+
+    public string FocusedConfigProfileSourceText => FocusedConfigProfile?.SourceText ?? "从左侧列表选择配置源";
+
+    public string FocusedConfigProfileUpdatedText => FocusedConfigProfile?.UpdateText ?? "无更新时间";
+
+    public string FocusedConfigProfileDescription => FocusedConfigProfile?.Description ?? "未选择配置源";
+
+    public string FocusedConfigProfilePathText => FocusedConfigProfile?.FilePath ?? "-";
+
+    public bool FocusedConfigProfileIsUrl => FocusedConfigProfile?.IsUrl == true;
+
+    public bool FocusedConfigProfileIsActive =>
+        FocusedConfigProfile != null &&
+        SelectedConfigProfile != null &&
+        FocusedConfigProfile.Id == SelectedConfigProfile.Id;
+
+    public string FocusedConfigProfileActivationText => FocusedConfigProfileIsActive ? "已启用" : "启用";
+
     public bool MissingSelectedGroup => SelectedGroup == null;
 
     public bool MissingVisibleProxyNodes => SelectedGroup != null && VisibleProxyNodes.Count == 0;
+
+    public bool HasRuntimeLogs => RecentRuntimeEvents.Count > 0;
+
+    public bool MissingRuntimeLogs => RecentRuntimeEvents.Count == 0;
 
     public string ProxyDelayTestUrl => SelectedGroup?.TestUrl is { Length: > 0 } value
         ? value
@@ -524,10 +718,12 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsConfigPage));
         OnPropertyChanged(nameof(IsToolsPage));
         OnPropertyChanged(nameof(IsConfigPageWithProfiles));
+        OnPropertyChanged(nameof(IsConfigAddActionVisible));
         OnPropertyChanged(nameof(CanNavigateBack));
         OnPropertyChanged(nameof(IsAppBarBackVisible));
         OnPropertyChanged(nameof(PageTitle));
         OnPropertyChanged(nameof(PageSubtitle));
+        UpdateShellNavigationSelection();
         NotifyToolPageProperties();
     }
 
@@ -536,11 +732,12 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(RunningActionText));
         OnPropertyChanged(nameof(RunningActionCommand));
         OnPropertyChanged(nameof(RunningStateText));
-        OnPropertyChanged(nameof(IsProxyNavigationVisible));
-        OnPropertyChanged(nameof(IsCompactNavigationVisible));
+        OnPropertyChanged(nameof(OverviewStatusSummary));
+        NotifyRuntimeCapabilityProperties();
         OnPropertyChanged(nameof(CanNavigateBack));
         OnPropertyChanged(nameof(IsAppBarBackVisible));
         OnPropertyChanged(nameof(PageSubtitle));
+        OnPropertyChanged(nameof(NetworkDetectionRouteText));
         if (value)
         {
             _startedAt ??= DateTimeOffset.Now;
@@ -553,13 +750,38 @@ public partial class MainViewModel : ViewModelBase
         {
             if (IsProxiesPage)
             {
-                CurrentPage = "overview";
+                NavigateToPrimaryPage("overview", pushBackStack: false);
             }
 
             _telemetryTimer.Stop();
             _startedAt = null;
             RunningDuration = "00:00:00";
         }
+
+        PrunePrimaryBackStack();
+        RebuildShellNavigationItems();
+    }
+
+    partial void OnCoreCapabilitiesChanged(CoreCapabilities value)
+    {
+        if (!value.SupportsProxyGroups && IsProxiesPage)
+        {
+            NavigateToPrimaryPage("overview", pushBackStack: false);
+        }
+
+        if (CurrentToolPage == "access" && !CanConfigureAccessControl)
+        {
+            CurrentToolPage = string.Empty;
+        }
+
+        PrunePrimaryBackStack();
+        NotifyRuntimeCapabilityProperties();
+    }
+
+    partial void OnRuntimeStateChanged(RuntimeState value)
+    {
+        NotifyRuntimeCapabilityProperties();
+        OnPropertyChanged(nameof(VpnIntranetAddress));
     }
 
     partial void OnIsBusyChanged(bool value)
@@ -572,8 +794,14 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsStarting));
         OnPropertyChanged(nameof(RunningActionText));
         OnPropertyChanged(nameof(RunningStateText));
+        OnPropertyChanged(nameof(OverviewStatusSummary));
+        OnPropertyChanged(nameof(NetworkDetectionRouteText));
         StartCommand.NotifyCanExecuteChanged();
         StopCommand.NotifyCanExecuteChanged();
+        RefreshProxiesCommand.NotifyCanExecuteChanged();
+        RefreshSelectedGroupCommand.NotifyCanExecuteChanged();
+        TestSelectedGroupDelayCommand.NotifyCanExecuteChanged();
+        TestProxyDelayCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnEnableIpv6Changed(bool value)
@@ -585,17 +813,24 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnIsNetworkDetectionLoadingChanged(bool value)
     {
-        OnPropertyChanged(nameof(NetworkDetectionText));
+        NotifyNetworkDetectionProperties();
     }
 
     partial void OnPublicIpChanged(string value)
     {
-        OnPropertyChanged(nameof(NetworkDetectionText));
+        NotifyNetworkDetectionProperties();
     }
 
     partial void OnPublicIpCountryCodeChanged(string value)
     {
         OnPropertyChanged(nameof(PublicIpCountryMark));
+        NotifyNetworkDetectionProperties();
+    }
+
+    partial void OnLastMessageChanged(string value)
+    {
+        OnPropertyChanged(nameof(OverviewStatusSummary));
+        AddRuntimeEvent(value);
     }
 
     partial void OnIsDarkThemeChanged(bool value)
@@ -630,6 +865,7 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ProxyDelayTestUrl));
         OnPropertyChanged(nameof(HasSelectedGroup));
         OnPropertyChanged(nameof(MissingSelectedGroup));
+        TestSelectedGroupDelayCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnProxySearchTextChanged(string value)
@@ -678,6 +914,13 @@ public partial class MainViewModel : ViewModelBase
     partial void OnSelectedConfigProfileChanged(ConfigProfileItem? value)
     {
         ApplySelectedConfigProfile(value);
+        OnPropertyChanged(nameof(CurrentConfigDisplayName));
+        NotifyConfigProfileDetailProperties();
+    }
+
+    partial void OnFocusedConfigProfileChanged(ConfigProfileItem? value)
+    {
+        NotifyConfigProfileDetailProperties();
     }
 
     partial void OnIsAddProfilePanelVisibleChanged(bool value)
@@ -688,6 +931,8 @@ public partial class MainViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(IsAddProfileMenuVisible));
+        OnPropertyChanged(nameof(CanShowAddProfileButton));
+        OnPropertyChanged(nameof(IsConfigAddActionVisible));
         OnPropertyChanged(nameof(CanNavigateBack));
         OnPropertyChanged(nameof(IsAppBarBackVisible));
     }
@@ -700,13 +945,13 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void ShowOverview()
     {
-        CurrentPage = "overview";
+        NavigateToPrimaryPage("overview");
     }
 
     [RelayCommand]
     private void ShowProfiles()
     {
-        CurrentPage = "profiles";
+        NavigateToPrimaryPage("profiles");
     }
 
     [RelayCommand]
@@ -714,23 +959,23 @@ public partial class MainViewModel : ViewModelBase
     {
         if (!IsProxyNavigationVisible)
         {
-            LastMessage = "启动 VPN 后可查看代理";
+            LastMessage = "启动 VPN 后可查看策略";
             return;
         }
 
-        CurrentPage = "proxies";
+        NavigateToPrimaryPage("proxies");
     }
 
     [RelayCommand]
     private void ShowConfig()
     {
-        CurrentPage = "config";
+        NavigateToPrimaryPage("config");
     }
 
     [RelayCommand]
     private void ShowTools()
     {
-        CurrentPage = "tools";
+        NavigateToPrimaryPage("tools");
     }
 
     [RelayCommand]
@@ -772,13 +1017,120 @@ public partial class MainViewModel : ViewModelBase
             return true;
         }
 
+        while (_primaryPageBackStack.Count > 0)
+        {
+            var pageKey = _primaryPageBackStack.Pop();
+            NotifyBackNavigationProperties();
+
+            if (!CanShowPrimaryPage(pageKey) || pageKey == CurrentPage)
+            {
+                continue;
+            }
+
+            NavigateToPrimaryPage(pageKey, pushBackStack: false);
+            return true;
+        }
+
         if (!IsOverviewPage)
         {
-            CurrentPage = "overview";
+            NavigateToPrimaryPage("overview", pushBackStack: false);
             return true;
         }
 
         return false;
+    }
+
+    private void NavigateToPrimaryPage(string pageKey, bool pushBackStack = true)
+    {
+        if (!CanShowPrimaryPage(pageKey))
+        {
+            if (pageKey == "proxies")
+            {
+                LastMessage = "启动 VPN 后可查看策略";
+            }
+
+            return;
+        }
+
+        if (CurrentPage == pageKey)
+        {
+            ResetTransientNavigationState();
+            if (IsToolsPage)
+            {
+                CurrentToolPage = string.Empty;
+            }
+
+            return;
+        }
+
+        if (pushBackStack && CanShowPrimaryPage(CurrentPage))
+        {
+            PushPrimaryBackStack(CurrentPage);
+        }
+
+        ResetTransientNavigationState();
+        if (pageKey != "tools")
+        {
+            CurrentToolPage = string.Empty;
+        }
+
+        CurrentPage = pageKey;
+    }
+
+    private void PushPrimaryBackStack(string pageKey)
+    {
+        if (_primaryPageBackStack.TryPeek(out var previousPage) && previousPage == pageKey)
+        {
+            return;
+        }
+
+        _primaryPageBackStack.Push(pageKey);
+        NotifyBackNavigationProperties();
+    }
+
+    private void PrunePrimaryBackStack()
+    {
+        if (_primaryPageBackStack.Count == 0)
+        {
+            return;
+        }
+
+        var pages = _primaryPageBackStack
+            .Reverse()
+            .Where(CanShowPrimaryPage)
+            .ToArray();
+
+        _primaryPageBackStack.Clear();
+        foreach (var page in pages)
+        {
+            _primaryPageBackStack.Push(page);
+        }
+
+        NotifyBackNavigationProperties();
+    }
+
+    private bool CanShowPrimaryPage(string pageKey)
+    {
+        return pageKey switch
+        {
+            "overview" or "profiles" or "config" or "tools" => true,
+            "proxies" => IsProxyNavigationVisible,
+            _ => false
+        };
+    }
+
+    private void ResetTransientNavigationState()
+    {
+        IsAddProfilePanelVisible = false;
+        IsProxyGroupListVisible = false;
+        IsProxySearchVisible = false;
+        ProxySearchText = string.Empty;
+    }
+
+    private void NotifyBackNavigationProperties()
+    {
+        OnPropertyChanged(nameof(CanNavigateBack));
+        OnPropertyChanged(nameof(IsAppBarBackVisible));
     }
 
     private void QueueRuntimeRestart(string reason, bool needsConfigSave = false)
@@ -842,7 +1194,7 @@ public partial class MainViewModel : ViewModelBase
 
     private bool CanStart()
     {
-        return !IsBusy && !IsRunning && !IsStarting;
+        return !IsBusy && !IsRunning && !IsStarting && CoreCapabilities.CanStart;
     }
 
     private bool CanStop()
@@ -852,17 +1204,154 @@ public partial class MainViewModel : ViewModelBase
 
     private bool CanValidate()
     {
-        return !IsBusy;
+        return !IsBusy && CoreCapabilities.CanValidateConfig;
     }
 
     private bool CanImportSubscription()
     {
-        return !IsBusy;
+        return !IsBusy &&
+            Uri.TryCreate(SubscriptionUrl.Trim(), UriKind.Absolute, out var uri) &&
+            (uri.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase) ||
+             uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool CanUseFocusedConfigProfile()
+    {
+        return !IsBusy && FocusedConfigProfile != null;
+    }
+
+    private bool CanActivateFocusedConfigProfile()
+    {
+        return CanUseFocusedConfigProfile() && !FocusedConfigProfileIsActive;
+    }
+
+    private bool CanValidateFocusedConfigProfile()
+    {
+        return CanUseFocusedConfigProfile() &&
+            CoreCapabilities.CanValidateConfig &&
+            !string.IsNullOrWhiteSpace(FocusedConfigProfile?.FilePath);
+    }
+
+    private bool CanSyncFocusedConfigProfile()
+    {
+        return CanUseFocusedConfigProfile() && FocusedConfigProfile?.IsUrl == true;
     }
 
     private bool CanRefreshProxies()
     {
-        return !IsBusy && IsRunning;
+        return !IsBusy && IsRunning && CoreCapabilities.SupportsProxyGroups;
+    }
+
+    private void NotifyRuntimeCapabilityProperties()
+    {
+        RebuildShellNavigationItems();
+        OnPropertyChanged(nameof(IsProxyNavigationVisible));
+        OnPropertyChanged(nameof(IsCompactNavigationVisible));
+        OnPropertyChanged(nameof(CanUseProxyGroups));
+        OnPropertyChanged(nameof(CanSelectProxyNodes));
+        OnPropertyChanged(nameof(CanTestProxyDelayCapability));
+        OnPropertyChanged(nameof(CanRunGroupHealthCheck));
+        OnPropertyChanged(nameof(CanReadTrafficTelemetry));
+        OnPropertyChanged(nameof(CanReadConnectionTelemetry));
+        OnPropertyChanged(nameof(CanSwitchOutboundModeAtRuntime));
+        OnPropertyChanged(nameof(CanCloseRuntimeConnections));
+        OnPropertyChanged(nameof(CanConfigureAccessControl));
+        OnPropertyChanged(nameof(CanConfigureSystemProxy));
+        OnPropertyChanged(nameof(CanConfigureDnsHijacking));
+        OnPropertyChanged(nameof(CanConfigureExternalController));
+        OnPropertyChanged(nameof(CanConfigureGeodataMemoryMode));
+        OnPropertyChanged(nameof(CoreRuntimeName));
+        OnPropertyChanged(nameof(RuntimeCapabilitySummary));
+        OnPropertyChanged(nameof(ProxySummary));
+        OnPropertyChanged(nameof(SelectedGroupSummary));
+        OnPropertyChanged(nameof(PageSubtitle));
+        StartCommand.NotifyCanExecuteChanged();
+        StopCommand.NotifyCanExecuteChanged();
+        RefreshProxiesCommand.NotifyCanExecuteChanged();
+        RefreshSelectedGroupCommand.NotifyCanExecuteChanged();
+        TestSelectedGroupDelayCommand.NotifyCanExecuteChanged();
+        TestProxyDelayCommand.NotifyCanExecuteChanged();
+        ValidateFocusedConfigProfileCommand.NotifyCanExecuteChanged();
+    }
+
+    private void NotifyConfigProfileDetailProperties()
+    {
+        OnPropertyChanged(nameof(HasFocusedConfigProfile));
+        OnPropertyChanged(nameof(MissingFocusedConfigProfile));
+        OnPropertyChanged(nameof(CurrentConfigProfileTitle));
+        OnPropertyChanged(nameof(CurrentConfigDisplayName));
+        OnPropertyChanged(nameof(CurrentConfigProfileSourceText));
+        OnPropertyChanged(nameof(CurrentConfigProfileUpdatedText));
+        OnPropertyChanged(nameof(CurrentConfigProfileDescription));
+        OnPropertyChanged(nameof(CurrentConfigProfileIsUrl));
+        OnPropertyChanged(nameof(FocusedConfigProfileTitle));
+        OnPropertyChanged(nameof(FocusedConfigProfileSourceText));
+        OnPropertyChanged(nameof(FocusedConfigProfileUpdatedText));
+        OnPropertyChanged(nameof(FocusedConfigProfileDescription));
+        OnPropertyChanged(nameof(FocusedConfigProfilePathText));
+        OnPropertyChanged(nameof(FocusedConfigProfileIsUrl));
+        OnPropertyChanged(nameof(FocusedConfigProfileIsActive));
+        OnPropertyChanged(nameof(FocusedConfigProfileActivationText));
+        ActivateFocusedConfigProfileCommand.NotifyCanExecuteChanged();
+        ValidateFocusedConfigProfileCommand.NotifyCanExecuteChanged();
+        SyncFocusedConfigProfileCommand.NotifyCanExecuteChanged();
+        DeleteFocusedConfigProfileCommand.NotifyCanExecuteChanged();
+    }
+
+    private void NotifyNetworkDetectionProperties()
+    {
+        OnPropertyChanged(nameof(NetworkDetectionText));
+        OnPropertyChanged(nameof(NetworkDetectionStateText));
+        OnPropertyChanged(nameof(NetworkDetectionDetailText));
+        OnPropertyChanged(nameof(NetworkDetectionRouteText));
+        OnPropertyChanged(nameof(IsNetworkDetectionFailed));
+        OnPropertyChanged(nameof(IsNetworkDetectionReady));
+    }
+
+    private void AddRuntimeEvent(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        var normalizedMessage = message.Trim();
+        if (RecentRuntimeEvents.Count > 0 &&
+            RecentRuntimeEvents[0].Message.Equals(normalizedMessage, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        RecentRuntimeEvents.Insert(0, new RuntimeEventItem(DateTimeOffset.Now, normalizedMessage));
+        while (RecentRuntimeEvents.Count > 100)
+        {
+            RecentRuntimeEvents.RemoveAt(RecentRuntimeEvents.Count - 1);
+        }
+
+        OnPropertyChanged(nameof(HasRuntimeLogs));
+        OnPropertyChanged(nameof(MissingRuntimeLogs));
+    }
+
+    private void RebuildShellNavigationItems()
+    {
+        ShellNavigationItems.Clear();
+        ShellNavigationItems.Add(new ShellNavigationItem("overview", "总览", "⌁", ShowOverviewCommand));
+        if (IsProxyNavigationVisible)
+        {
+            ShellNavigationItems.Add(new ShellNavigationItem("proxies", "策略", "⇄", ShowProxiesCommand));
+        }
+
+        ShellNavigationItems.Add(new ShellNavigationItem("config", "配置", "☰", ShowConfigCommand));
+        ShellNavigationItems.Add(new ShellNavigationItem("tools", "工具", "⚙", ShowToolsCommand));
+        UpdateShellNavigationSelection();
+    }
+
+    private void UpdateShellNavigationSelection()
+    {
+        foreach (var item in ShellNavigationItems)
+        {
+            item.IsActive = item.PageKey == CurrentPage;
+        }
     }
 
     private async Task RunAsync(Func<Task> action)
@@ -897,6 +1386,7 @@ public partial class MainViewModel : ViewModelBase
         }
 
         StateText = status.State.ToString();
+        RuntimeState = RuntimeState.WithStatus(status);
         if (status.State == ClashRunState.Running)
         {
             _startedAt = status.StartedAtUnixMilliseconds > 0

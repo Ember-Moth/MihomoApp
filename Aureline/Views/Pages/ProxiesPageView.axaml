@@ -11,10 +11,66 @@
              x:DataType="vm:MainViewModel">
     <Grid RowDefinitions="Auto,Auto,*">
         <Border Grid.Row="0"
+                Padding="16,12,16,10"
                 Background="{DynamicResource Brush.PageBackground}"
-                BorderBrush="{DynamicResource Brush.BorderMuted}"
+                BorderBrush="{DynamicResource Brush.StrokeMuted}"
                 BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="12">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{Binding SelectedGroupTitle}"
+                                   Foreground="{DynamicResource Brush.TextPrimary}"
+                                   FontSize="20"
+                                   FontWeight="Black"
+                                   MaxLines="1"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding SelectedGroupSummary}"
+                                   Foreground="{DynamicResource Brush.TextMuted}"
+                                   FontSize="12"
+                                   MaxLines="1"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                Spacing="8"
+                                VerticalAlignment="Top">
+                        <Button Classes="iconButton"
+                                Width="44"
+                                Height="44"
+                                Content="⌕"
+                                Command="{Binding ToggleProxySearchCommand}" />
+                        <Button Classes="iconButton"
+                                Width="44"
+                                Height="44"
+                                Content="↻"
+                                Command="{Binding RefreshSelectedGroupCommand}" />
+                        <Button Classes="iconButton"
+                                Width="44"
+                                Height="44"
+                                Content="⋯">
+                            <Button.Flyout>
+                                <MenuFlyout>
+                                    <MenuItem Header="测试当前策略"
+                                              Command="{Binding TestSelectedGroupDelayCommand}" />
+                                    <MenuItem Header="定位当前节点"
+                                              Command="{Binding ShowCurrentProxyCommand}" />
+                                    <MenuItem Header="配置顺序"
+                                              Command="{Binding SetProxySortModeCommand}"
+                                              CommandParameter="配置顺序" />
+                                    <MenuItem Header="按延迟"
+                                              Command="{Binding SetProxySortModeCommand}"
+                                              CommandParameter="按延迟" />
+                                    <MenuItem Header="按名称"
+                                              Command="{Binding SetProxySortModeCommand}"
+                                              CommandParameter="按名称" />
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
                 <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                               VerticalScrollBarVisibility="Disabled">
                     <ItemsControl ItemsSource="{Binding ProxyGroups}">
@@ -25,45 +81,41 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:ProxyGroupItem">
-                                <Button Classes="proxyTab"
+                                <Button Classes="groupTab"
                                         Classes.active="{Binding IsSelected}"
+                                        MinWidth="132"
+                                        Margin="0,0,8,0"
                                         Command="{Binding DataContext.SelectGroupCommand, ElementName=Root}"
                                         CommandParameter="{Binding}">
                                     <StackPanel Spacing="4">
                                         <TextBlock Text="{Binding Name}"
                                                    Foreground="{DynamicResource Brush.TextPrimary}"
-                                                   FontSize="14"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"
                                                    MaxLines="1"
                                                    TextTrimming="CharacterEllipsis" />
-                                        <Border Height="3"
-                                                CornerRadius="2"
-                                                Background="{DynamicResource Brush.Accent}"
-                                                IsVisible="{Binding IsSelected}" />
+                                        <TextBlock Text="{Binding CountText}"
+                                                   Foreground="{DynamicResource Brush.TextMuted}"
+                                                   FontSize="11" />
                                     </StackPanel>
                                 </Button>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
-
-                <Button Grid.Column="1"
-                        Classes="iconButton"
-                        Margin="2,4,8,4"
-                        Content="⌄"
-                        Command="{Binding ToggleProxyGroupListCommand}" />
-            </Grid>
+            </StackPanel>
         </Border>
 
         <Border Grid.Row="1"
                 IsVisible="{Binding IsProxySearchVisible}"
                 Padding="16,10"
                 Background="{DynamicResource Brush.PageBackground}"
-                BorderBrush="{DynamicResource Brush.BorderMuted}"
+                BorderBrush="{DynamicResource Brush.StrokeMuted}"
                 BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="*,Auto"
                   ColumnSpacing="8">
                 <TextBox Text="{Binding ProxySearchText}"
-                         PlaceholderText="搜索节点" />
+                         PlaceholderText="搜索节点、类型或链路" />
                 <Button Grid.Column="1"
                         Classes="iconButton"
                         Content="×"
@@ -74,21 +126,22 @@
         <ScrollViewer Grid.Row="2"
                       x:Name="ProxyPageHost"
                       RenderTransformOrigin="0.5,0.5">
-            <StackPanel Margin="12,16,12,96"
-                        Spacing="0">
+            <StackPanel Margin="16,16,16,112"
+                        Spacing="12">
                 <Border Classes="card"
                         IsVisible="{Binding MissingSelectedGroup}">
                     <StackPanel Spacing="8"
                                 HorizontalAlignment="Center">
-                        <TextBlock Text="暂无代理"
+                        <TextBlock Text="暂无策略"
                                    Foreground="{DynamicResource Brush.TextPrimary}"
                                    FontSize="16"
                                    FontWeight="SemiBold"
                                    HorizontalAlignment="Center" />
-                        <TextBlock Text="启动核心后刷新"
+                        <TextBlock Text="{Binding SelectedGroupSummary}"
                                    Foreground="{DynamicResource Brush.TextSecondary}"
                                    FontSize="12"
-                                   HorizontalAlignment="Center" />
+                                   HorizontalAlignment="Center"
+                                   TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 
@@ -102,57 +155,56 @@
                 <ItemsControl ItemsSource="{Binding VisibleProxyNodes}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <UniformGrid Columns="2" />
+                            <StackPanel />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:ProxyNodeItem">
-                            <Button Classes="proxyCardButton"
+                            <Button Classes="listItemButton"
                                     Classes.active="{Binding IsSelected}"
-                                    Margin="4"
+                                    MinHeight="74"
+                                    Margin="0,0,0,8"
                                     Command="{Binding DataContext.SelectProxyCommand, ElementName=Root}"
                                     CommandParameter="{Binding}">
-                                <Grid>
-                                    <Grid RowDefinitions="*,Auto"
-                                          RowSpacing="8">
+                                <Grid ColumnDefinitions="*,Auto"
+                                      ColumnSpacing="12">
+                                    <StackPanel Spacing="5"
+                                                VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Name}"
                                                    Foreground="{DynamicResource Brush.TextPrimary}"
-                                                   FontSize="14"
-                                                   MaxLines="2"
-                                                   TextWrapping="Wrap"
+                                                   FontSize="15"
+                                                   FontWeight="SemiBold"
+                                                   MaxLines="1"
                                                    TextTrimming="CharacterEllipsis" />
-                                        <Grid Grid.Row="1"
-                                              ColumnDefinitions="*,Auto"
-                                              ColumnSpacing="8">
-                                            <TextBlock Text="{Binding TypeText}"
-                                                       Foreground="{DynamicResource Brush.TextSecondary}"
-                                                       FontSize="12"
-                                                       MaxLines="1"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <Border Grid.Column="1"
-                                                    Classes="delayChip"
-                                                    VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding DelayText}"
-                                                           Foreground="{DynamicResource Brush.Warning}"
-                                                           FontSize="12" />
-                                            </Border>
-                                        </Grid>
-                                    </Grid>
-
-                                    <Border Width="24"
-                                            Height="24"
-                                            CornerRadius="12"
-                                            HorizontalAlignment="Right"
-                                            VerticalAlignment="Top"
-                                            Background="{DynamicResource Brush.Accent}"
-                                            IsVisible="{Binding IsSelected}">
-                                        <TextBlock Text="✓"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource Brush.AccentForeground}"
+                                        <TextBlock Text="{Binding Description}"
+                                                   Foreground="{DynamicResource Brush.TextMuted}"
                                                    FontSize="12"
-                                                   FontWeight="Black" />
-                                    </Border>
+                                                   MaxLines="1"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1"
+                                                Orientation="Horizontal"
+                                                Spacing="8"
+                                                VerticalAlignment="Center">
+                                        <Border Classes="delayChip">
+                                            <TextBlock Text="{Binding DelayText}"
+                                                       Foreground="{DynamicResource Brush.Warning}"
+                                                       FontSize="12" />
+                                        </Border>
+                                        <Border Width="22"
+                                                Height="22"
+                                                CornerRadius="8"
+                                                Background="{DynamicResource Brush.Route}"
+                                                IsVisible="{Binding IsSelected}">
+                                            <TextBlock Text="✓"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource Brush.RouteForeground}"
+                                                       FontSize="12"
+                                                       FontWeight="Black" />
+                                        </Border>
+                                    </StackPanel>
                                 </Grid>
                             </Button>
                         </DataTemplate>
@@ -160,70 +212,5 @@
                 </ItemsControl>
             </StackPanel>
         </ScrollViewer>
-
-        <Border Grid.RowSpan="3"
-                IsVisible="{Binding IsProxyGroupListVisible}"
-                Background="#99000000">
-            <Grid RowDefinitions="*,Auto">
-                <Button Background="Transparent"
-                        BorderBrush="Transparent"
-                        Command="{Binding HideProxyGroupListCommand}" />
-                <Border Grid.Row="1"
-                        Classes="bottomSheet">
-                    <StackPanel>
-                        <Grid Height="48"
-                              ColumnDefinitions="48,*,48">
-                            <TextBlock Grid.Column="1"
-                                       Text="策略组"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Foreground="{DynamicResource Brush.TextPrimary}"
-                                       FontSize="18"
-                                       FontWeight="SemiBold" />
-                            <Button Grid.Column="2"
-                                    Classes="iconButton"
-                                    Content="×"
-                                    Command="{Binding HideProxyGroupListCommand}" />
-                        </Grid>
-                        <ScrollViewer MaxHeight="420">
-                            <ItemsControl ItemsSource="{Binding ProxyGroups}"
-                                          Margin="0,0,0,28">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:ProxyGroupItem">
-                                        <Button Classes="toolRow"
-                                                Command="{Binding #Root.DataContext.SelectGroupCommand}"
-                                                CommandParameter="{Binding}">
-                                            <Grid ColumnDefinitions="*,Auto"
-                                                  ColumnSpacing="12">
-                                                <StackPanel Spacing="4">
-                                                    <TextBlock Text="{Binding Name}"
-                                                               Foreground="{DynamicResource Brush.TextPrimary}"
-                                                               FontSize="15"
-                                                               FontWeight="SemiBold"
-                                                               MaxLines="1"
-                                                               TextTrimming="CharacterEllipsis" />
-                                                    <TextBlock Text="{Binding Summary}"
-                                                               Foreground="{DynamicResource Brush.TextSecondary}"
-                                                               FontSize="12"
-                                                               MaxLines="1"
-                                                               TextTrimming="CharacterEllipsis" />
-                                                </StackPanel>
-                                                <TextBlock Grid.Column="1"
-                                                           Text="✓"
-                                                           IsVisible="{Binding IsSelected}"
-                                                           VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource Brush.Accent}"
-                                                           FontSize="18"
-                                                           FontWeight="Black" />
-                                            </Grid>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </StackPanel>
-                </Border>
-            </Grid>
-        </Border>
     </Grid>
 </UserControl>

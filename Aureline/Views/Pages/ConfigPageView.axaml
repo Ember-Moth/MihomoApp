@@ -10,84 +10,120 @@
              x:Class="Aureline.Views.Pages.ConfigPageView"
              x:DataType="vm:MainViewModel">
     <Grid>
-        <Grid IsVisible="{Binding MissingConfigProfiles}"
-              Margin="0,0,0,80">
-            <StackPanel HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Spacing="16">
-                <Border Classes="profileEmptyIllustration">
-                    <Grid>
-                        <Border Width="88"
-                                Height="70"
-                                CornerRadius="12"
-                                Background="{DynamicResource Brush.Surface}"
-                                BorderBrush="{DynamicResource Brush.BorderMuted}"
-                                BorderThickness="1"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center">
-                            <StackPanel Margin="18,16"
-                                        Spacing="8">
-                                <Border Height="8"
-                                        Width="52"
-                                        CornerRadius="4"
-                                        HorizontalAlignment="Left"
-                                        Background="{DynamicResource Brush.BorderMuted}" />
-                                <Border Height="8"
-                                        Width="42"
-                                        CornerRadius="4"
-                                        HorizontalAlignment="Left"
-                                        Background="{DynamicResource Brush.BorderMuted}" />
-                                <Border Height="8"
-                                        Width="30"
-                                        CornerRadius="4"
-                                        HorizontalAlignment="Left"
-                                        Background="{DynamicResource Brush.BorderMuted}" />
+        <ScrollViewer>
+            <StackPanel Margin="16,12,16,116"
+                        Spacing="12">
+                <TextBlock Classes="sectionHeader"
+                           Text="当前配置" />
+
+                <Border Classes="dashboardCard">
+                    <Grid RowDefinitions="Auto,Auto,Auto"
+                          RowSpacing="12">
+                        <Grid ColumnDefinitions="*,Auto"
+                              ColumnSpacing="12">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{Binding CurrentConfigProfileTitle}"
+                                           Foreground="{DynamicResource Brush.TextPrimary}"
+                                           FontSize="18"
+                                           FontWeight="SemiBold"
+                                           MaxLines="1"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding CurrentConfigProfileSourceText}"
+                                           Foreground="{DynamicResource Brush.TextSecondary}"
+                                           FontSize="12" />
                             </StackPanel>
-                        </Border>
-                        <Border Width="46"
-                                Height="46"
-                                CornerRadius="23"
-                                Background="{DynamicResource Brush.Accent}"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Bottom"
-                                Margin="0,0,18,18">
-                            <TextBlock Text="⚙"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Foreground="{DynamicResource Brush.AccentForeground}"
-                                       FontSize="20"
-                                       FontWeight="Black" />
-                        </Border>
+
+                            <Border Grid.Column="1"
+                                    Classes="statusPill success"
+                                    IsVisible="{Binding HasConfigProfiles}"
+                                    VerticalAlignment="Top">
+                                <TextBlock Text="Active"
+                                           Foreground="{DynamicResource Brush.Success}"
+                                           FontSize="12"
+                                           FontWeight="SemiBold" />
+                            </Border>
+                        </Grid>
+
+                        <StackPanel Grid.Row="1"
+                                    Spacing="5">
+                            <TextBlock Text="{Binding CurrentConfigProfileDescription}"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                       FontSize="12"
+                                       MaxLines="2"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding CurrentConfigProfileUpdatedText}"
+                                       Foreground="{DynamicResource Brush.TextMuted}"
+                                       FontSize="12" />
+                        </StackPanel>
+
+                        <Grid Grid.Row="2"
+                              ColumnDefinitions="*,*"
+                              ColumnSpacing="10"
+                              IsVisible="{Binding HasConfigProfiles}">
+                            <Button Content="校验"
+                                    Command="{Binding ValidateConfigCommand}" />
+                            <Button Grid.Column="1"
+                                    Content="更新"
+                                    IsVisible="{Binding CurrentConfigProfileIsUrl}"
+                                    Command="{Binding SyncConfigProfileCommand}"
+                                    CommandParameter="{Binding SelectedConfigProfile}" />
+                        </Grid>
                     </Grid>
                 </Border>
-                <TextBlock Text="没有配置文件,请先添加配置文件"
-                           Foreground="{DynamicResource Brush.TextSecondary}"
-                           FontSize="16"
-                           FontWeight="SemiBold" />
-            </StackPanel>
-        </Grid>
 
-        <ScrollViewer IsVisible="{Binding HasConfigProfiles}">
-            <ItemsControl ItemsSource="{Binding ConfigProfiles}"
-                          Margin="16,16,16,96">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:ConfigProfileItem">
-                        <Border Classes="profileCard"
-                                Classes.active="{Binding IsSelected}"
-                                HorizontalAlignment="Stretch"
-                                Margin="0,0,0,14">
-                            <Grid ColumnDefinitions="*,48">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="12"
+                      Margin="0,8,0,0">
+                    <StackPanel Spacing="3">
+                        <TextBlock Text="配置源"
+                                   Foreground="{DynamicResource Brush.TextPrimary}"
+                                   FontSize="18"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding ConfigProfileCountText}"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                   FontSize="12" />
+                    </StackPanel>
+
+                    <Button Grid.Column="1"
+                            Classes="tonal"
+                            MinWidth="82"
+                            IsVisible="{Binding CanShowAddProfileButton}"
+                            Content="添加"
+                            Command="{Binding ShowAddProfilePanelCommand}" />
+                </Grid>
+
+                <Border Classes="card"
+                        IsVisible="{Binding MissingConfigProfiles}">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="还没有配置源"
+                                   Foreground="{DynamicResource Brush.TextPrimary}"
+                                   FontSize="16"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="可以导入本地 YAML，或通过 URL 拉取远程订阅。"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                   FontSize="12"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <ItemsControl ItemsSource="{Binding ConfigProfiles}"
+                              IsVisible="{Binding HasConfigProfiles}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="10" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ConfigProfileItem">
+                            <Border Classes="profileCard"
+                                    Classes.active="{Binding IsSelected}">
                                 <Button Classes="profileRow"
-                                        Command="{Binding #Root.DataContext.SelectConfigProfileCommand}"
+                                        Command="{Binding #Root.DataContext.OpenConfigProfileDetailCommand}"
                                         CommandParameter="{Binding}">
                                     <Grid ColumnDefinitions="*,Auto"
                                           ColumnSpacing="12">
-                                        <StackPanel Spacing="7"
+                                        <StackPanel Spacing="6"
                                                     VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Label}"
                                                        Foreground="{DynamicResource Brush.TextPrimary}"
@@ -95,70 +131,138 @@
                                                        FontWeight="SemiBold"
                                                        MaxLines="1"
                                                        TextTrimming="CharacterEllipsis" />
-                                            <StackPanel Spacing="3">
-                                                <TextBlock Text="{Binding UpdateText}"
-                                                           Foreground="{DynamicResource Brush.TextSecondary}"
-                                                           FontSize="12"
-                                                           MaxLines="1" />
-                                                <TextBlock Text="{Binding Description}"
-                                                           Foreground="{DynamicResource Brush.TextMuted}"
-                                                           FontSize="12"
-                                                           MaxLines="1"
-                                                           TextTrimming="CharacterEllipsis" />
-                                            </StackPanel>
+                                            <TextBlock Text="{Binding Description}"
+                                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                                       FontSize="12"
+                                                       MaxLines="1"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding UpdateText}"
+                                                       Foreground="{DynamicResource Brush.TextMuted}"
+                                                       FontSize="12"
+                                                       MaxLines="1" />
                                         </StackPanel>
-                                        <Border Grid.Column="1"
-                                                Classes="profileTypeChip"
-                                                VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding TypeText}"
-                                                       Foreground="{DynamicResource Brush.Accent}"
-                                                       FontSize="11"
-                                                       FontWeight="SemiBold" />
-                                        </Border>
+
+                                        <StackPanel Grid.Column="1"
+                                                    Spacing="6"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Center">
+                                            <Border Classes="profileTypeChip"
+                                                    HorizontalAlignment="Right">
+                                                <TextBlock Text="{Binding TypeText}"
+                                                           Foreground="{DynamicResource Brush.Accent}"
+                                                           FontSize="11"
+                                                           FontWeight="SemiBold" />
+                                            </Border>
+                                            <Border Classes="statusPill success"
+                                                    IsVisible="{Binding IsSelected}"
+                                                    HorizontalAlignment="Right">
+                                                <TextBlock Text="当前"
+                                                           Foreground="{DynamicResource Brush.Success}"
+                                                           FontSize="11"
+                                                           FontWeight="SemiBold" />
+                                            </Border>
+                                        </StackPanel>
                                     </Grid>
                                 </Button>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
-                                <Button Grid.Column="1"
-                                        Classes="iconButton"
-                                        Width="40"
-                                        Height="40"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Content="⋮">
-                                    <Button.Flyout>
-                                        <MenuFlyout>
-                                            <MenuItem Header="编辑"
-                                                      Command="{Binding #Root.DataContext.EditConfigProfileCommand}"
-                                                      CommandParameter="{Binding}" />
-                                            <MenuItem Header="预览"
-                                                      Command="{Binding #Root.DataContext.PreviewConfigProfileCommand}"
-                                                      CommandParameter="{Binding}" />
-                                            <MenuItem Header="同步"
-                                                      IsVisible="{Binding IsUrl}"
-                                                      Command="{Binding #Root.DataContext.SyncConfigProfileCommand}"
-                                                      CommandParameter="{Binding}" />
-                                            <MenuItem Header="覆写"
-                                                      Command="{Binding #Root.DataContext.EditConfigProfileCommand}"
-                                                      CommandParameter="{Binding}" />
-                                            <MenuItem Header="复制链接"
-                                                      IsVisible="{Binding IsUrl}"
-                                                      Click="CopyProfileLinkClick" />
-                                            <MenuItem Header="导出文件"
-                                                      Click="ExportProfileFileClick" />
-                                            <MenuItem Header="删除"
-                                                      Command="{Binding #Root.DataContext.DeleteConfigProfileCommand}"
-                                                      CommandParameter="{Binding}" />
-                                        </MenuFlyout>
-                                    </Button.Flyout>
-                                </Button>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                <TextBlock Classes="sectionHeader"
+                           Text="配置详情"
+                           Margin="16,16,16,6" />
+
+                <Border Classes="dashboardCard"
+                        IsVisible="{Binding HasFocusedConfigProfile}">
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+                          RowSpacing="12">
+                        <Grid ColumnDefinitions="*,Auto"
+                              ColumnSpacing="12">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{Binding FocusedConfigProfileTitle}"
+                                           Foreground="{DynamicResource Brush.TextPrimary}"
+                                           FontSize="18"
+                                           FontWeight="SemiBold"
+                                           MaxLines="1"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding FocusedConfigProfileSourceText}"
+                                           Foreground="{DynamicResource Brush.TextSecondary}"
+                                           FontSize="12" />
+                            </StackPanel>
+
+                            <Border Grid.Column="1"
+                                    Classes="statusPill success"
+                                    IsVisible="{Binding FocusedConfigProfileIsActive}"
+                                    VerticalAlignment="Top">
+                                <TextBlock Text="当前"
+                                           Foreground="{DynamicResource Brush.Success}"
+                                           FontSize="12"
+                                           FontWeight="SemiBold" />
+                            </Border>
+                        </Grid>
+
+                        <StackPanel Grid.Row="1"
+                                    Spacing="5">
+                            <TextBlock Text="{Binding FocusedConfigProfileDescription}"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                       FontSize="12"
+                                       MaxLines="2"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding FocusedConfigProfilePathText}"
+                                       Foreground="{DynamicResource Brush.TextMuted}"
+                                       FontSize="12"
+                                       MaxLines="2"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding FocusedConfigProfileUpdatedText}"
+                                       Foreground="{DynamicResource Brush.TextMuted}"
+                                       FontSize="12" />
+                        </StackPanel>
+
+                        <Grid Grid.Row="2"
+                              ColumnDefinitions="*,*,*"
+                              ColumnSpacing="8">
+                            <Button Content="{Binding FocusedConfigProfileActivationText}"
+                                    Command="{Binding ActivateFocusedConfigProfileCommand}" />
+                            <Button Grid.Column="1"
+                                    Content="更新"
+                                    IsVisible="{Binding FocusedConfigProfileIsUrl}"
+                                    Command="{Binding SyncFocusedConfigProfileCommand}" />
+                            <Button Grid.Column="2"
+                                    Content="校验"
+                                    Command="{Binding ValidateFocusedConfigProfileCommand}" />
+                        </Grid>
+
+                        <Grid Grid.Row="3"
+                              ColumnDefinitions="*,*,*"
+                              ColumnSpacing="8">
+                            <Button Content="复制路径"
+                                    Click="CopyFocusedProfilePathClick" />
+                            <Button Grid.Column="1"
+                                    Content="复制链接"
+                                    IsVisible="{Binding FocusedConfigProfileIsUrl}"
+                                    Click="CopyFocusedProfileLinkClick" />
+                            <Button Grid.Column="2"
+                                    Classes="danger"
+                                    Content="删除"
+                                    Command="{Binding DeleteFocusedConfigProfileCommand}" />
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Border Classes="card"
+                        IsVisible="{Binding MissingFocusedConfigProfile}">
+                    <TextBlock Text="选择一个配置源后查看详情。"
+                               Foreground="{DynamicResource Brush.TextSecondary}"
+                               FontSize="12" />
+                </Border>
+            </StackPanel>
         </ScrollViewer>
 
         <Border IsVisible="{Binding IsAddProfilePanelVisible}"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
                 Background="#99000000">
             <Grid RowDefinitions="*,Auto">
                 <Button Background="Transparent"
@@ -189,63 +293,68 @@
 
                         <StackPanel IsVisible="{Binding IsAddProfileMenuVisible}">
                             <Button Classes="listItemButton"
-                                    Command="{Binding ShowQrCodeProfileCommand}">
+                                    Command="{Binding ShowAddProfileUrlInputCommand}">
                                 <Grid ColumnDefinitions="Auto,*"
                                       ColumnSpacing="16">
-                                    <TextBlock Text="▦"
-                                               Width="32"
+                                    <TextBlock Text="URL"
+                                               Width="42"
                                                HorizontalAlignment="Center"
                                                VerticalAlignment="Center"
-                                               Foreground="{DynamicResource Brush.TextSecondary}"
-                                               FontSize="22" />
+                                               Foreground="{DynamicResource Brush.Accent}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold" />
+                                    <StackPanel Grid.Column="1"
+                                                Spacing="3">
+                                        <TextBlock Text="远程订阅"
+                                                   Foreground="{DynamicResource Brush.TextPrimary}"
+                                                   FontSize="15" />
+                                        <TextBlock Text="使用 clash UA 拉取配置"
+                                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                                   FontSize="12" />
+                                    </StackPanel>
+                                </Grid>
+                            </Button>
+
+                            <Button Classes="listItemButton"
+                                    Click="ImportProfileFileClick">
+                                <Grid ColumnDefinitions="Auto,*"
+                                      ColumnSpacing="16">
+                                    <TextBlock Text="YML"
+                                               Width="42"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Brush.Route}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold" />
+                                    <StackPanel Grid.Column="1"
+                                                Spacing="3">
+                                        <TextBlock Text="本地文件"
+                                                   Foreground="{DynamicResource Brush.TextPrimary}"
+                                                   FontSize="15" />
+                                        <TextBlock Text="复制到应用配置目录"
+                                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                                   FontSize="12" />
+                                    </StackPanel>
+                                </Grid>
+                            </Button>
+
+                            <Button Classes="listItemButton"
+                                    IsEnabled="False">
+                                <Grid ColumnDefinitions="Auto,*"
+                                      ColumnSpacing="16">
+                                    <TextBlock Text="QR"
+                                               Width="42"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Brush.TextMuted}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold" />
                                     <StackPanel Grid.Column="1"
                                                 Spacing="3">
                                         <TextBlock Text="二维码"
                                                    Foreground="{DynamicResource Brush.TextPrimary}"
                                                    FontSize="15" />
-                                        <TextBlock Text="扫描二维码获取配置文件"
-                                                   Foreground="{DynamicResource Brush.TextSecondary}"
-                                                   FontSize="12" />
-                                    </StackPanel>
-                                </Grid>
-                            </Button>
-                            <Button Classes="listItemButton"
-                                    Click="ImportProfileFileClick">
-                                <Grid ColumnDefinitions="Auto,*"
-                                      ColumnSpacing="16">
-                                    <TextBlock Text="⇧"
-                                               Width="32"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"
-                                               Foreground="{DynamicResource Brush.TextSecondary}"
-                                               FontSize="22" />
-                                    <StackPanel Grid.Column="1"
-                                                Spacing="3">
-                                        <TextBlock Text="文件"
-                                                   Foreground="{DynamicResource Brush.TextPrimary}"
-                                                   FontSize="15" />
-                                        <TextBlock Text="直接上传配置文件"
-                                                   Foreground="{DynamicResource Brush.TextSecondary}"
-                                                   FontSize="12" />
-                                    </StackPanel>
-                                </Grid>
-                            </Button>
-                            <Button Classes="listItemButton"
-                                    Command="{Binding ShowAddProfileUrlInputCommand}">
-                                <Grid ColumnDefinitions="Auto,*"
-                                      ColumnSpacing="16">
-                                    <TextBlock Text="☁"
-                                               Width="32"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"
-                                               Foreground="{DynamicResource Brush.TextSecondary}"
-                                               FontSize="20" />
-                                    <StackPanel Grid.Column="1"
-                                                Spacing="3">
-                                        <TextBlock Text="URL"
-                                                   Foreground="{DynamicResource Brush.TextPrimary}"
-                                                   FontSize="15" />
-                                        <TextBlock Text="通过URL获取配置文件"
+                                        <TextBlock Text="等待平台扫码能力接入"
                                                    Foreground="{DynamicResource Brush.TextSecondary}"
                                                    FontSize="12" />
                                     </StackPanel>
@@ -257,11 +366,11 @@
                                     Margin="16,8,16,0"
                                     Spacing="14">
                             <TextBox Text="{Binding SubscriptionUrl}"
-                                     PlaceholderText="URL"
+                                     PlaceholderText="https://example.com/sub.yaml"
                                      AcceptsReturn="False" />
                             <Button Classes="primary"
                                     HorizontalAlignment="Right"
-                                    Content="提交"
+                                    Content="导入"
                                     Command="{Binding ImportSubscriptionCommand}" />
                         </StackPanel>
                     </StackPanel>

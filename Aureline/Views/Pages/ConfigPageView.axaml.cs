@@ -48,69 +48,31 @@ public partial class ConfigPageView : UserControl
         await viewModel.ImportProfileFileCommand.ExecuteAsync(new PickedProfileFile(file.Name, content));
     }
 
-    private async void CopyProfileLinkClick(object? sender, RoutedEventArgs e)
+    private async void CopyFocusedProfilePathClick(object? sender, RoutedEventArgs e)
     {
         var topLevel = TopLevel.GetTopLevel(this);
         if (topLevel?.Clipboard == null ||
             DataContext is not MainViewModel viewModel ||
-            (sender as Control)?.DataContext is not ConfigProfileItem profile ||
-            !profile.IsUrl)
+            viewModel.FocusedConfigProfile == null)
         {
             return;
         }
 
-        await topLevel.Clipboard.SetTextAsync(profile.Url);
-        viewModel.LastMessage = "订阅链接已复制";
+        await topLevel.Clipboard.SetTextAsync(viewModel.FocusedConfigProfile.FilePath);
+        viewModel.LastMessage = "配置路径已复制";
     }
 
-    private async void ExportProfileFileClick(object? sender, RoutedEventArgs e)
+    private async void CopyFocusedProfileLinkClick(object? sender, RoutedEventArgs e)
     {
         var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel?.StorageProvider == null ||
+        if (topLevel?.Clipboard == null ||
             DataContext is not MainViewModel viewModel ||
-            (sender as Control)?.DataContext is not ConfigProfileItem profile)
+            viewModel.FocusedConfigProfile?.IsUrl != true)
         {
             return;
         }
 
-        if (!File.Exists(profile.FilePath))
-        {
-            viewModel.LastMessage = $"配置文件不存在: {profile.FilePath}";
-            return;
-        }
-
-        var file = await topLevel.StorageProvider.SaveFilePickerAsync(
-            new FilePickerSaveOptions
-            {
-                Title = "导出文件",
-                SuggestedFileName = $"{SanitizeFileName(profile.Label)}.yaml",
-                FileTypeChoices =
-                [
-                    new FilePickerFileType("YAML")
-                    {
-                        Patterns = ["*.yaml", "*.yml"]
-                    }
-                ]
-            });
-        if (file == null)
-        {
-            return;
-        }
-
-        await using var output = await file.OpenWriteAsync();
-        await using var input = File.OpenRead(profile.FilePath);
-        await input.CopyToAsync(output);
-        viewModel.LastMessage = "配置文件已导出";
-    }
-
-    private static string SanitizeFileName(string value)
-    {
-        var invalidChars = Path.GetInvalidFileNameChars();
-        var chars = value
-            .Trim()
-            .Select(c => invalidChars.Contains(c) || char.IsWhiteSpace(c) ? '-' : c)
-            .ToArray();
-        var result = new string(chars).Trim('-');
-        return string.IsNullOrWhiteSpace(result) ? "config" : result;
+        await topLevel.Clipboard.SetTextAsync(viewModel.FocusedConfigProfile.Url);
+        viewModel.LastMessage = "订阅链接已复制";
     }
 }

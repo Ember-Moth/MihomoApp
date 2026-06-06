@@ -27,6 +27,8 @@ internal sealed class AndroidClashRuntime : IClashRuntime
 
     public ClashStatus Status { get; private set; } = ClashStatus.Stopped;
 
+    public CoreCapabilities Capabilities { get; } = CoreCapabilities.AndroidLibClash;
+
     public string DefaultHomeDirectory { get; }
 
     public string DefaultConfigPath { get; }

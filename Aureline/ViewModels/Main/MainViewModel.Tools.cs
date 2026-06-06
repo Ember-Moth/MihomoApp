@@ -15,19 +15,25 @@ public partial class MainViewModel
     [RelayCommand]
     private async Task ShowToolPageAsync(string? page)
     {
-        CurrentToolPage = page?.Trim() switch
+        var toolPage = page?.Trim();
+        if (toolPage == "access" && !CanConfigureAccessControl)
+        {
+            CurrentToolPage = string.Empty;
+            LastMessage = "当前核心不支持访问控制";
+            return;
+        }
+
+        CurrentToolPage = toolPage switch
         {
             "language" => "language",
             "theme" => "theme",
             "backup" => "backup",
             "access" => "access",
             "basic" => "basic",
-            "advanced" => "advanced",
             "network" => "network",
             "dns" => "dns",
-            "rules" => "rules",
-            "scripts" => "scripts",
             "application" => "application",
+            "logs" => "logs",
             "disclaimer" => "disclaimer",
             "about" => "about",
             _ => string.Empty
@@ -563,14 +569,17 @@ public partial class MainViewModel
         OnPropertyChanged(nameof(IsBackupToolPage));
         OnPropertyChanged(nameof(IsAccessToolPage));
         OnPropertyChanged(nameof(IsBasicConfigToolPage));
-        OnPropertyChanged(nameof(IsAdvancedConfigToolPage));
         OnPropertyChanged(nameof(IsNetworkConfigToolPage));
         OnPropertyChanged(nameof(IsDnsConfigToolPage));
-        OnPropertyChanged(nameof(IsRulesConfigToolPage));
-        OnPropertyChanged(nameof(IsScriptsConfigToolPage));
         OnPropertyChanged(nameof(IsApplicationSettingsToolPage));
+        OnPropertyChanged(nameof(IsLogsToolPage));
         OnPropertyChanged(nameof(IsDisclaimerToolPage));
         OnPropertyChanged(nameof(IsAboutToolPage));
+        OnPropertyChanged(nameof(CanConfigureAccessControl));
+        OnPropertyChanged(nameof(CanConfigureSystemProxy));
+        OnPropertyChanged(nameof(CanConfigureDnsHijacking));
+        OnPropertyChanged(nameof(CanConfigureExternalController));
+        OnPropertyChanged(nameof(CanConfigureGeodataMemoryMode));
         OnPropertyChanged(nameof(ToolPageTitle));
     }
 }

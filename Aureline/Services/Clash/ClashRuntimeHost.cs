@@ -13,6 +13,14 @@ internal sealed class UnsupportedClashRuntime : IClashRuntime
 
     public ClashStatus Status { get; private set; } = new(ClashRunState.Error, "Android runtime is not registered");
 
+    public CoreCapabilities Capabilities { get; } = CoreCapabilities.Unsupported("Android runtime is not registered");
+
+    public RuntimeState RuntimeState => RuntimeState.Unsupported with
+    {
+        Status = new ClashStatus(ClashRunState.Error, "Android runtime is not registered"),
+        Capabilities = Capabilities
+    };
+
     public string DefaultHomeDirectory => string.Empty;
 
     public string DefaultConfigPath => string.Empty;

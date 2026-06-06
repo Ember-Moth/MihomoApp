@@ -19,6 +19,14 @@ public partial class MainViewModel
             return;
         }
 
+        if (!CanStart())
+        {
+            LastMessage = CoreCapabilities.CanStart
+                ? "当前状态不能启动核心"
+                : CoreCapabilities.RuntimeName;
+            return;
+        }
+
         await StartAsync();
     }
 
@@ -84,11 +92,29 @@ public partial class MainViewModel
         try
         {
             var profile = BuildProfile();
+            var supportIssue = ValidateProfileSupport(profile);
+            if (!string.IsNullOrWhiteSpace(supportIssue))
+            {
+                RuntimeState = RuntimeState
+                    .WithProfile(profile)
+                    .WithStatus(new ClashStatus(ClashRunState.Error, supportIssue));
+                StateText = "Error";
+                IsRunning = false;
+                LastMessage = supportIssue;
+                return;
+            }
+
+            RuntimeState = RuntimeState
+                .WithProfile(profile)
+                .WithStatus(new ClashStatus(ClashRunState.Starting, "正在启动核心"));
             await _runtime.InitializeAsync(profile);
 
             var validationMessage = await _runtime.ValidateConfigAsync(profile.ConfigPath);
             if (!string.IsNullOrWhiteSpace(validationMessage))
             {
+                RuntimeState = RuntimeState
+                    .WithProfile(profile)
+                    .WithStatus(new ClashStatus(ClashRunState.Error, validationMessage));
                 StateText = "Error";
                 IsRunning = false;
                 LastMessage = validationMessage;
@@ -111,6 +137,7 @@ public partial class MainViewModel
         }
         catch (Exception ex)
         {
+            RuntimeState = RuntimeState.WithStatus(new ClashStatus(ClashRunState.Error, ex.Message));
             StateText = "Error";
             IsRunning = false;
             LastMessage = ex.Message;
@@ -134,5 +161,46 @@ public partial class MainViewModel
         {
             // Startup UI refresh is best effort; the timer keeps telemetry current.
         }
+    }
+
+    private string ValidateProfileSupport(ClashProfile profile)
+    {
+        if (!CoreCapabilities.CanStart)
+        {
+            return CoreCapabilities.RuntimeName;
+        }
+
+        if (profile.EnableTun && !CoreCapabilities.SupportsTun)
+        {
+            return "当前核心不支持 TUN/VPN";
+        }
+
+        if (profile.EnableIpv6 && !CoreCapabilities.SupportsIpv6)
+        {
+            return "当前核心不支持 IPv6";
+        }
+
+        if (profile.DnsHijacking && !CoreCapabilities.SupportsDnsHijacking)
+        {
+            return "当前核心不支持 DNS 劫持";
+        }
+
+        if (profile.SystemProxy && !CoreCapabilities.SupportsSystemProxy)
+        {
+            return "当前平台不支持系统代理";
+        }
+
+        if (profile.AccessControlEnabled && !CoreCapabilities.SupportsAccessControl)
+        {
+            return "当前平台不支持应用访问控制";
+        }
+
+        if (CoreCapabilities.SupportedStacks.Count > 0 &&
+            !CoreCapabilities.SupportedStacks.Contains(profile.Stack, StringComparer.OrdinalIgnoreCase))
+        {
+            return $"当前核心不支持 {profile.Stack} 栈";
+        }
+
+        return string.Empty;
     }
 }

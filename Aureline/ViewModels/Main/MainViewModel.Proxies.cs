@@ -120,46 +120,46 @@ public partial class MainViewModel
     {
         await RunAsync(async () =>
         {
-            await _runtime.HealthCheckAsync(SelectedGroup?.Name ?? string.Empty);
+            if (CoreCapabilities.SupportsGroupHealthCheck)
+            {
+                await _runtime.HealthCheckAsync(SelectedGroup?.Name ?? string.Empty);
+            }
+
             await RefreshProxiesCoreAsync();
-            LastMessage = SelectedGroup == null ? "策略组已刷新" : $"{SelectedGroup.Name} 已刷新";
+            LastMessage = CoreCapabilities.SupportsGroupHealthCheck
+                ? SelectedGroup == null ? "策略组已刷新" : $"{SelectedGroup.Name} 已刷新"
+                : "当前核心不支持策略组测速，已刷新策略组";
         });
     }
 
     [RelayCommand]
-    private async Task SelectProxyAsync(ProxyNodeItem? proxy)
+    private void SelectProxy(ProxyNodeItem? proxy)
     {
-        if (SelectedGroup == null || proxy == null || !IsRunning || !SelectedGroup.IsSelectable)
+        var group = SelectedGroup;
+        if (group == null || proxy == null || !IsRunning || !group.IsSelectable)
         {
-            LastMessage = SelectedGroup?.IsSelectable == false ? "当前策略组不支持手动切换" : LastMessage;
+            LastMessage = group?.IsSelectable == false ? "当前策略组不支持手动切换" : LastMessage;
             return;
         }
 
-        await RunAsync(async () =>
+        if (!CoreCapabilities.SupportsProxySelection)
         {
-            var selected = await _runtime.SelectProxyAsync(SelectedGroup.Name, proxy.Name);
-            if (!selected)
-            {
-                LastMessage = $"切换失败: {SelectedGroup.Name} -> {proxy.Name}";
-                return;
-            }
+            LastMessage = "当前核心不支持切换节点";
+            return;
+        }
 
-            SelectedGroup.Now = proxy.Name;
-            foreach (var node in SelectedGroup.Nodes)
-            {
-                node.IsSelected = string.Equals(node.Name, proxy.Name, StringComparison.Ordinal);
-            }
+        if (string.Equals(group.Now, proxy.Name, StringComparison.Ordinal))
+        {
+            LastMessage = $"当前节点: {proxy.Name}";
+            return;
+        }
 
-            if (CloseConnections)
-            {
-                await _runtime.CloseAllConnectionsAsync();
-            }
-
-            LastMessage = $"{SelectedGroup.Name} -> {proxy.Name}";
-            OnSelectedGroupChanged(SelectedGroup);
-            await RefreshProxiesCoreAsync();
-            await RefreshNetworkDetectionAsync();
-        });
+        var previousProxyName = group.Now;
+        var revision = ++_proxySelectionRevision;
+        ApplySelectedProxyLocally(group, proxy.Name);
+        proxy.IsSwitching = true;
+        LastMessage = $"{group.Name} -> {proxy.Name}，正在切换";
+        _ = CompleteProxySelectionAsync(group.Name, proxy.Name, previousProxyName, revision, proxy);
     }
 
     [RelayCommand(CanExecute = nameof(CanTestSelectedGroupDelay))]
@@ -207,6 +207,21 @@ public partial class MainViewModel
 
     private async Task RefreshProxiesCoreAsync()
     {
+        if (!CoreCapabilities.SupportsProxyGroups)
+        {
+            ProxyGroups.Clear();
+            VisibleProxyNodes.Clear();
+            SelectedGroup = null;
+            OnPropertyChanged(nameof(ProxySummary));
+            OnPropertyChanged(nameof(VisibleProxySummary));
+            OnPropertyChanged(nameof(HasProxyGroups));
+            OnPropertyChanged(nameof(HasVisibleProxyNodes));
+            OnPropertyChanged(nameof(MissingSelectedGroup));
+            OnPropertyChanged(nameof(MissingVisibleProxyNodes));
+            LastMessage = "当前核心不支持策略组";
+            return;
+        }
+
         var selectedGroupName = SelectedGroup?.Name;
         var groups = await _runtime.GetProxyGroupsAsync(ProxySortMode);
 
@@ -288,7 +303,7 @@ public partial class MainViewModel
 
     private async Task RefreshTelemetryAsync()
     {
-        if (!IsRunning || _isRefreshingTelemetry)
+        if (!IsRunning || _isRefreshingTelemetry || !RuntimeState.CanReadTelemetry)
         {
             return;
         }
@@ -297,20 +312,41 @@ public partial class MainViewModel
         {
             _isRefreshingTelemetry = true;
             UpdateRunningDuration();
-            var traffic = await _runtime.GetTrafficAsync();
-            var connectionCount = await _runtime.GetConnectionCountAsync();
-            if (traffic == null || connectionCount == null)
+
+            if (CoreCapabilities.SupportsTraffic)
             {
-                return;
+                var traffic = await _runtime.GetTrafficAsync();
+                if (traffic != null)
+                {
+                    UploadSpeed = $"{FormatBytes(traffic.Up)}/s";
+                    DownloadSpeed = $"{FormatBytes(traffic.Down)}/s";
+                    AddSpeedSamples(traffic.Up, traffic.Down);
+                    TotalUpload = FormatBytes(traffic.UpTotal);
+                    TotalDownload = FormatBytes(traffic.DownTotal);
+                    TotalTraffic = FormatBytes(traffic.UpTotal + traffic.DownTotal);
+                }
+            }
+            else
+            {
+                UploadSpeed = "-";
+                DownloadSpeed = "-";
+                TotalUpload = "-";
+                TotalDownload = "-";
+                TotalTraffic = "-";
             }
 
-            UploadSpeed = $"{FormatBytes(traffic.Up)}/s";
-            DownloadSpeed = $"{FormatBytes(traffic.Down)}/s";
-            AddSpeedSamples(traffic.Up, traffic.Down);
-            TotalUpload = FormatBytes(traffic.UpTotal);
-            TotalDownload = FormatBytes(traffic.DownTotal);
-            TotalTraffic = FormatBytes(traffic.UpTotal + traffic.DownTotal);
-            ConnectionCount = connectionCount.Value.ToString();
+            if (CoreCapabilities.SupportsConnectionCount)
+            {
+                var connectionCount = await _runtime.GetConnectionCountAsync();
+                if (connectionCount != null)
+                {
+                    ConnectionCount = connectionCount.Value.ToString();
+                }
+            }
+            else
+            {
+                ConnectionCount = "-";
+            }
         }
         catch
         {
@@ -327,6 +363,87 @@ public partial class MainViewModel
         foreach (var group in ProxyGroups)
         {
             group.IsSelected = ReferenceEquals(group, SelectedGroup);
+        }
+    }
+
+    private async Task CompleteProxySelectionAsync(
+        string groupName,
+        string proxyName,
+        string previousProxyName,
+        long revision,
+        ProxyNodeItem proxy)
+    {
+        try
+        {
+            var selected = await _runtime.SelectProxyAsync(groupName, proxyName);
+            if (_proxySelectionRevision != revision)
+            {
+                return;
+            }
+
+            var currentGroup = FindProxyGroup(groupName);
+            if (currentGroup == null)
+            {
+                return;
+            }
+
+            if (!selected)
+            {
+                ApplySelectedProxyLocally(currentGroup, previousProxyName);
+                LastMessage = $"切换失败: {groupName} -> {proxyName}";
+                return;
+            }
+
+            if (CloseConnections && CoreCapabilities.SupportsCloseConnections)
+            {
+                await _runtime.CloseAllConnectionsAsync();
+            }
+
+            if (_proxySelectionRevision == revision)
+            {
+                await RefreshProxiesCoreAsync();
+                await RefreshNetworkDetectionAsync();
+                LastMessage = $"{groupName} -> {proxyName}";
+            }
+        }
+        catch (Exception ex)
+        {
+            if (_proxySelectionRevision == revision)
+            {
+                var currentGroup = FindProxyGroup(groupName);
+                if (currentGroup != null)
+                {
+                    ApplySelectedProxyLocally(currentGroup, previousProxyName);
+                }
+
+                LastMessage = $"切换失败: {ex.Message}";
+            }
+        }
+        finally
+        {
+            proxy.IsSwitching = false;
+        }
+    }
+
+    private ProxyGroupItem? FindProxyGroup(string groupName)
+    {
+        return ProxyGroups.FirstOrDefault(group =>
+            string.Equals(group.Name, groupName, StringComparison.Ordinal));
+    }
+
+    private void ApplySelectedProxyLocally(ProxyGroupItem group, string proxyName)
+    {
+        group.Now = proxyName;
+        foreach (var node in group.Nodes)
+        {
+            node.IsSelected = string.Equals(node.Name, proxyName, StringComparison.Ordinal);
+        }
+
+        if (ReferenceEquals(group, SelectedGroup))
+        {
+            OnPropertyChanged(nameof(SelectedGroupSummary));
+            OnPropertyChanged(nameof(SelectedGroupNow));
+            OnPropertyChanged(nameof(ProxySummary));
         }
     }
 
@@ -372,12 +489,20 @@ public partial class MainViewModel
 
     private bool CanTestSelectedGroupDelay()
     {
-        return !IsBusy && IsRunning && SelectedGroup != null && SelectedGroup.Nodes.Count > 0;
+        return !IsBusy &&
+            IsRunning &&
+            CoreCapabilities.SupportsProxyDelayTest &&
+            SelectedGroup != null &&
+            SelectedGroup.Nodes.Count > 0;
     }
 
     private bool CanTestProxyDelay(ProxyNodeItem? proxy)
     {
-        return !IsBusy && IsRunning && SelectedGroup != null && proxy != null;
+        return !IsBusy &&
+            IsRunning &&
+            CoreCapabilities.SupportsProxyDelayTest &&
+            SelectedGroup != null &&
+            proxy != null;
     }
 
     private static int DelaySortKey(ProxyNodeItem node)

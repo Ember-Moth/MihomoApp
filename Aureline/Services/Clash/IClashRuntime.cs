@@ -8,6 +8,10 @@ public interface IClashRuntime
 
     ClashStatus Status { get; }
 
+    CoreCapabilities Capabilities => CoreCapabilities.NativeClash;
+
+    RuntimeState RuntimeState => new(Status, Capabilities);
+
     string DefaultHomeDirectory { get; }
 
     string DefaultConfigPath { get; }

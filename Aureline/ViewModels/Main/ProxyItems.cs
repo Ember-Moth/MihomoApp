@@ -87,6 +87,9 @@ public sealed partial class ProxyNodeItem : ObservableObject
     [ObservableProperty]
     private bool _isTesting;
 
+    [ObservableProperty]
+    private bool _isSwitching;
+
     public string DelayText
     {
         get
@@ -94,6 +97,11 @@ public sealed partial class ProxyNodeItem : ObservableObject
             if (IsTesting)
             {
                 return "测试中";
+            }
+
+            if (IsSwitching)
+            {
+                return "切换中";
             }
 
             return Delay switch
@@ -139,6 +147,11 @@ public sealed partial class ProxyNodeItem : ObservableObject
     }
 
     partial void OnIsTestingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(DelayText));
+    }
+
+    partial void OnIsSwitchingChanged(bool value)
     {
         OnPropertyChanged(nameof(DelayText));
     }

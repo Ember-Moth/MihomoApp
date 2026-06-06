@@ -17,6 +17,8 @@ internal sealed class IosClashRuntime : IClashRuntime
 
     public ClashStatus Status { get; private set; } = ClashStatus.Stopped;
 
+    public CoreCapabilities Capabilities { get; } = CoreCapabilities.IosPacketTunnel;
+
     public string DefaultHomeDirectory { get; }
 
     public string DefaultConfigPath { get; }
