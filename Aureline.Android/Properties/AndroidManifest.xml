@@ -13,9 +13,14 @@
 
   <application android:label="Aureline" android:icon="@drawable/icon" android:extractNativeLibs="true">
     <service
+      android:name="com.embermoth.aureline.AurelineCoreService"
+      android:exported="false"
+      android:process=":vpn" />
+    <service
       android:name="com.embermoth.aureline.AurelineVpnService"
       android:permission="android.permission.BIND_VPN_SERVICE"
       android:exported="false"
+      android:process=":vpn"
       android:foregroundServiceType="specialUse">
       <intent-filter>
         <action android:name="android.net.VpnService" />

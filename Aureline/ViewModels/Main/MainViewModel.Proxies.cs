@@ -254,6 +254,33 @@ public partial class MainViewModel
         LastMessage = ProxyGroups.Count == 0 ? "未发现策略组" : "策略组已刷新";
     }
 
+    private async Task<int> RestoreRememberedProxySelectionsAsync()
+    {
+        if (!CoreCapabilities.SupportsProxySelection || _proxySelections.Count == 0)
+        {
+            return 0;
+        }
+
+        var groups = await _runtime.GetProxyGroupsAsync("配置顺序");
+        var restored = 0;
+        foreach (var group in groups)
+        {
+            if (!TryGetRememberedProxySelection(group.Name, out var proxyName) ||
+                string.Equals(group.Now, proxyName, StringComparison.Ordinal) ||
+                !group.Proxies.Any(proxy => string.Equals(proxy.Name, proxyName, StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
+            if (await _runtime.SelectProxyAsync(group.Name, proxyName))
+            {
+                restored++;
+            }
+        }
+
+        return restored;
+    }
+
     private async Task TestDelayBatchAsync(
         IReadOnlyList<ProxyNodeItem> nodes,
         string testUrl,
@@ -399,12 +426,17 @@ public partial class MainViewModel
                 await _runtime.CloseAllConnectionsAsync();
             }
 
-            if (_proxySelectionRevision == revision)
+            if (_proxySelectionRevision != revision)
             {
-                await RefreshProxiesCoreAsync();
-                await RefreshNetworkDetectionAsync();
-                LastMessage = $"{groupName} -> {proxyName}";
+                return;
             }
+
+            RememberProxySelection(groupName, proxyName);
+            await PersistAppStateAsync();
+
+            await RefreshProxiesCoreAsync();
+            await RefreshNetworkDetectionAsync();
+            LastMessage = $"{groupName} -> {proxyName}";
         }
         catch (Exception ex)
         {

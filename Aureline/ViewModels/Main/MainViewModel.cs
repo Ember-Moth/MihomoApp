@@ -31,6 +31,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly Queue<double> _uploadSpeedSampleBuffer = new();
     private readonly Queue<double> _downloadSpeedSampleBuffer = new();
     private readonly Stack<string> _primaryPageBackStack = new();
+    private readonly Dictionary<string, string> _proxySelections = new(StringComparer.Ordinal);
 
     public MainViewModel()
     {

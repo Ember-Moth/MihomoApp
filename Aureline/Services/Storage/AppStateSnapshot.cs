@@ -38,6 +38,7 @@ public sealed record AppStateSnapshot(
     bool AccessFilterSystemApps,
     bool AccessFilterNoInternetApps,
     int? CurrentProfileId,
+    string ProxySelectionsJson,
     IReadOnlyList<StoredConfigProfile> Profiles);
 
 public sealed record StoredConfigProfile(

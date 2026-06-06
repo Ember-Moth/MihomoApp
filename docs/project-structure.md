@@ -79,7 +79,7 @@ Aureline.Android/
   MainActivity.cs            Avalonia Activity 和 Android 权限入口
   Application.cs             Android Application 初始化
   Interop/                   libclash.so P/Invoke 绑定
-  Services/                  Android 平台运行时实现
+  Services/                  Android IPC runtime、CoreService、JSON 源生成上下文
   Vpn/                       VpnService、TUN fd、Android socket callbacks
   NativeLibraries/           ABI 分目录的 libclash.so
   Resources/                 Android 原生资源
@@ -118,10 +118,33 @@ ViewModel 里直接调用它。不同 core 不要求使用完全一致的 ABI：
   `libmeow_*`，并把差异适配成共享 Android 运行时需要的 C# 方法。
 
 `Services/AndroidClashRuntime.cs` 实现共享层 `IClashRuntime`，负责初始化
-native core、写入 setup JSON、启动或停止 Android VPN 服务。
+Android IPC 客户端、请求 VPN 权限、查询已安装应用，并把 UI 命令转发到
+`:vpn` 进程。
 
-`Vpn/ClashVpnService.cs` 只处理 Android VPN 生命周期、TUN fd 和
-`protect/query uid` 回调。它不负责 UI 状态。
+`Services/AurelineCoreService.cs` 运行在 `:vpn` 进程中，是 Android native core
+宿主。它负责 `libclash/libmeow` 初始化、写入 setup JSON、启动/停止 listener、
+查询策略组和流量、切换节点、测速、健康检查、关闭连接。
+
+`Vpn/AurelineVpnService.cs` 也运行在 `:vpn` 进程中，只处理 Android VPN 生命周期、
+TUN fd、`protect/query uid` 回调和常驻通知栏实时网速。它不负责 UI 状态。
+
+三个 Android 变体都必须在自己的 manifest 中声明同一套多进程 service：
+
+```xml
+<service
+  android:name="com.embermoth.aureline.AurelineCoreService"
+  android:exported="false"
+  android:process=":vpn" />
+
+<service
+  android:name="com.embermoth.aureline.AurelineVpnService"
+  android:permission="android.permission.BIND_VPN_SERVICE"
+  android:exported="false"
+  android:process=":vpn"
+  android:foregroundServiceType="specialUse" />
+```
+
+Android 和 iOS 的统一多进程控制面见 `docs/multiprocess-runtime.md`。
 
 ## iOS 项目
 
@@ -171,7 +194,7 @@ Views
           -> Models
 
 Aureline.Android/Services
-  -> Services/Clash + Models + Interop + Vpn
+  -> Services/Clash + Models + Interop + Vpn + Android IPC
 
 Aureline.Android/Vpn
   -> Interop + Models

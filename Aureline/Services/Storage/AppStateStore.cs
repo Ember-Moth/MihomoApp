@@ -68,6 +68,7 @@ public sealed class AppStateStore
                 AccessFilterSystemApps = GetBool(settings, "access_filter_system_apps", defaults.AccessFilterSystemApps),
                 AccessFilterNoInternetApps = GetBool(settings, "access_filter_no_internet_apps", defaults.AccessFilterNoInternetApps),
                 CurrentProfileId = selectedProfileId ?? GetInt(settings, "current_profile_id", defaults.CurrentProfileId),
+                ProxySelectionsJson = GetSetting(settings, "proxy_selections_json", defaults.ProxySelectionsJson),
                 Profiles = profiles
             };
         }
@@ -124,6 +125,7 @@ public sealed class AppStateStore
             await UpsertSettingAsync(connection, transaction, "access_filter_system_apps", ToValue(state.AccessFilterSystemApps), cancellationToken);
             await UpsertSettingAsync(connection, transaction, "access_filter_no_internet_apps", ToValue(state.AccessFilterNoInternetApps), cancellationToken);
             await UpsertSettingAsync(connection, transaction, "current_profile_id", state.CurrentProfileId?.ToString() ?? string.Empty, cancellationToken);
+            await UpsertSettingAsync(connection, transaction, "proxy_selections_json", state.ProxySelectionsJson, cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
         }

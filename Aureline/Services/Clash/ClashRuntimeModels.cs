@@ -73,9 +73,9 @@ public sealed record CoreCapabilities(
     }
 
     public static CoreCapabilities AndroidLibClash { get; } = new(
-        "libclash Android",
+        "libclash Android IPC",
         CorePlatform.Android,
-        CoreControlPlane.NativeApi,
+        CoreControlPlane.Ipc,
         CanStart: true,
         CanValidateConfig: true,
         SupportsTun: true,

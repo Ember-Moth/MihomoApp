@@ -30,6 +30,7 @@ public sealed class AurelineVpnService : VpnService, IAndroidTunCallbacks
     private ParcelFileDescriptor? tunDescriptor;
     private ConnectivityManager? connectivityManager;
     private CancellationTokenSource? tunStartCancellation;
+    private CancellationTokenSource? notificationUpdateCancellation;
 
     internal static void Start(Context context, ClashVpnOptions options)
     {
@@ -188,7 +189,8 @@ public sealed class AurelineVpnService : VpnService, IAndroidTunCallbacks
                 if (!cancellationToken.IsCancellationRequested)
                 {
                     Log.Info(Tag, "libclash TUN is running");
-                    StartVpnForeground("Aureline core is running");
+                    StartVpnForeground(SpeedNotificationText(0, 0));
+                    StartSpeedNotificationUpdates();
                 }
             }
             catch (System.OperationCanceledException)
@@ -260,6 +262,8 @@ public sealed class AurelineVpnService : VpnService, IAndroidTunCallbacks
     private void StopActiveTun()
     {
         Log.Info(Tag, "StopActiveTun");
+        StopSpeedNotificationUpdates();
+
         tunStartCancellation?.Cancel();
         tunStartCancellation?.Dispose();
         tunStartCancellation = null;
@@ -332,8 +336,99 @@ public sealed class AurelineVpnService : VpnService, IAndroidTunCallbacks
             .SetContentText(text)
             .SetSmallIcon(Resource.Drawable.icon)
             .SetOngoing(true)
+            .SetOnlyAlertOnce(true)
+            .SetShowWhen(false)
+            .SetLocalOnly(true)
             .SetContentIntent(pendingIntent)
             .Build();
+    }
+
+    private void StartSpeedNotificationUpdates()
+    {
+        StopSpeedNotificationUpdates();
+        notificationUpdateCancellation = new CancellationTokenSource();
+        var cancellationToken = notificationUpdateCancellation.Token;
+
+        _ = Task.Run(async () =>
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    var (upload, download) = UnpackTraffic(LibClashNative.QueryTrafficNow());
+                    UpdateVpnNotification(SpeedNotificationText(upload, download));
+                }
+                catch (System.OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug(Tag, $"Failed to update VPN notification traffic: {ex.Message}");
+                }
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                }
+                catch (System.OperationCanceledException)
+                {
+                    break;
+                }
+            }
+        }, cancellationToken);
+    }
+
+    private void StopSpeedNotificationUpdates()
+    {
+        notificationUpdateCancellation?.Cancel();
+        notificationUpdateCancellation?.Dispose();
+        notificationUpdateCancellation = null;
+    }
+
+    private void UpdateVpnNotification(string text)
+    {
+        var manager = (NotificationManager?)GetSystemService(NotificationService);
+        manager?.Notify(NotificationId, BuildNotification(text));
+    }
+
+    private static string SpeedNotificationText(long upload, long download)
+    {
+        return $"↑ {FormatBytes(upload)}/s  ↓ {FormatBytes(download)}/s";
+    }
+
+    private static (long Upload, long Download) UnpackTraffic(long packed)
+    {
+        var upload = DecodeTrafficUnit((uint)((ulong)packed >> 32));
+        var download = DecodeTrafficUnit((uint)((ulong)packed & uint.MaxValue));
+        return (upload, download);
+    }
+
+    private static long DecodeTrafficUnit(uint value)
+    {
+        var unit = value >> 30;
+        var amount = value & 0x3fffffff;
+        return unit switch
+        {
+            1 => amount * 1024L / 100L,
+            2 => amount * 1024L * 1024L / 100L,
+            3 => amount * 1024L * 1024L * 1024L / 100L,
+            _ => amount
+        };
+    }
+
+    private static string FormatBytes(long value)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        var current = Math.Max(0, (double)value);
+        var unit = 0;
+        while (current >= 1024 && unit < units.Length - 1)
+        {
+            current /= 1024;
+            unit++;
+        }
+
+        return unit == 0 ? $"{current:0} {units[unit]}" : $"{current:0.0} {units[unit]}";
     }
 
     private static void AddRoutes(VpnBuilder builder, string routeAddressCsv)

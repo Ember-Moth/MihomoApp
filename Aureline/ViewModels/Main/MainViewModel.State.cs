@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using Aureline.Services.Storage;
@@ -6,6 +7,8 @@ namespace Aureline.ViewModels;
 
 public partial class MainViewModel
 {
+    private const char ProxySelectionKeySeparator = '\u001f';
+
     private async Task InitializePersistentStateAsync()
     {
         try
@@ -54,6 +57,7 @@ public partial class MainViewModel
                     AccessPackageCsv = state.AccessPackageCsv;
                     AccessFilterSystemApps = state.AccessFilterSystemApps;
                     AccessFilterNoInternetApps = state.AccessFilterNoInternetApps;
+                    ApplyProxySelectionsJson(state.ProxySelectionsJson);
                     ApplyConfigProfiles(state.Profiles, state.CurrentProfileId);
                     LoadConfigContent();
                     ApplyThemeMode();
@@ -158,7 +162,85 @@ public partial class MainViewModel
             AccessFilterSystemApps,
             AccessFilterNoInternetApps,
             currentProfileId,
+            SerializeProxySelections(),
             profiles);
+    }
+
+    private void ApplyProxySelectionsJson(string json)
+    {
+        _proxySelections.Clear();
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return;
+        }
+
+        try
+        {
+            var selections = JsonSerializer.Deserialize(
+                json,
+                AppStateJsonContext.Default.DictionaryStringString);
+            if (selections == null)
+            {
+                return;
+            }
+
+            foreach (var (key, value) in selections)
+            {
+                if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+                {
+                    continue;
+                }
+
+                _proxySelections[key] = value;
+            }
+        }
+        catch
+        {
+            _proxySelections.Clear();
+        }
+    }
+
+    private string SerializeProxySelections()
+    {
+        return _proxySelections.Count == 0
+            ? string.Empty
+            : JsonSerializer.Serialize(
+                _proxySelections,
+                AppStateJsonContext.Default.DictionaryStringString);
+    }
+
+    private void RememberProxySelection(string groupName, string proxyName)
+    {
+        if (string.IsNullOrWhiteSpace(groupName) || string.IsNullOrWhiteSpace(proxyName))
+        {
+            return;
+        }
+
+        _proxySelections[ProxySelectionKey(groupName)] = proxyName;
+    }
+
+    private bool TryGetRememberedProxySelection(string groupName, out string proxyName)
+    {
+        return _proxySelections.TryGetValue(ProxySelectionKey(groupName), out proxyName!) &&
+            !string.IsNullOrWhiteSpace(proxyName);
+    }
+
+    private string ProxySelectionKey(string groupName)
+    {
+        return $"{CurrentProxySelectionScope()}{ProxySelectionKeySeparator}{groupName}";
+    }
+
+    private string CurrentProxySelectionScope()
+    {
+        if (SelectedConfigProfile?.Id is > 0)
+        {
+            return $"profile:{SelectedConfigProfile.Id}";
+        }
+
+        var configPath = ConfigPath.Trim();
+        return string.IsNullOrWhiteSpace(configPath)
+            ? "profile:none"
+            : $"path:{configPath}";
     }
 
     private IReadOnlyList<StoredConfigProfile> CaptureStoredProfiles()

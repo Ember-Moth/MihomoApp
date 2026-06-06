@@ -126,9 +126,14 @@ public partial class MainViewModel
             if (IsRunning)
             {
                 await Task.Delay(500);
+                var restoredSelections = await RestoreRememberedProxySelectionsAsync();
                 await RefreshProxiesCoreAsync();
                 await RefreshTelemetryAsync();
                 await RefreshNetworkDetectionAsync();
+                if (restoredSelections > 0)
+                {
+                    LastMessage = $"已恢复 {restoredSelections} 个节点选择";
+                }
             }
             else if (StateText == "Stopped")
             {

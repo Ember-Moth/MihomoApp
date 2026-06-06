@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Android.App;
 using Android.Content;
@@ -5,21 +6,20 @@ using Android.Content.PM;
 using Android.Net;
 using Android.OS;
 using Android.Util;
-using Aureline.Android.Interop;
-using Aureline.Android.Vpn;
 using Aureline.Models;
 using Aureline.Services.Clash;
 
 namespace Aureline.Android.Services;
 
-internal sealed class AndroidClashRuntime : IClashRuntime
+internal sealed class AndroidClashRuntime : IClashRuntime, IDisposable
 {
-    private const string ExternalControllerListenAt = "127.0.0.1:9090";
     private const string Tag = "AurelineRuntime";
     public const int RequestVpnPermission = 1000;
 
     private readonly Activity activity;
+    private readonly AndroidCoreIpcClient ipcClient;
     private ClashProfile? pendingStartProfile;
+    private bool disposed;
 
     public static AndroidClashRuntime? Current { get; private set; }
 
@@ -36,8 +36,13 @@ internal sealed class AndroidClashRuntime : IClashRuntime
     private AndroidClashRuntime(Activity activity)
     {
         this.activity = activity;
+        ipcClient = new AndroidCoreIpcClient(activity);
         DefaultHomeDirectory = activity.FilesDir?.AbsolutePath ?? string.Empty;
         DefaultConfigPath = Path.Combine(DefaultHomeDirectory, "config.yaml");
+        if (IsCoreProcessRunning())
+        {
+            _ = RefreshStatusAsync();
+        }
     }
 
     public static void Install(Activity activity)
@@ -46,113 +51,36 @@ internal sealed class AndroidClashRuntime : IClashRuntime
         ClashRuntimeHost.Current = Current;
     }
 
+    public void Dispose()
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        disposed = true;
+        ipcClient.Dispose();
+    }
+
     public async Task InitializeAsync(ClashProfile profile, CancellationToken cancellationToken = default)
     {
-        Log.Info(Tag, $"Initialize home={profile.HomeDirectory}, config={profile.ConfigPath}, sdk={(int)Build.VERSION.SdkInt}");
-        await Task.Run(() =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            Directory.CreateDirectory(profile.HomeDirectory);
-            EnsureConfigFile(profile);
-            LibClashNative.Init(profile.HomeDirectory, (int)Build.VERSION.SdkInt);
-        }, cancellationToken);
-        Log.Info(Tag, "Initialize completed");
+        Log.Info(Tag, $"Initialize via IPC home={profile.HomeDirectory}, config={profile.ConfigPath}");
+        var payload = SerializeProfile(profile);
+        await ipcClient.SendAsync(AndroidIpcCommands.Initialize, payload, cancellationToken);
     }
 
     public async Task<string> ValidateConfigAsync(string configPath, CancellationToken cancellationToken = default)
     {
-        Log.Info(Tag, $"Validate config={configPath}");
-        if (!File.Exists(configPath))
-        {
-            Log.Error(Tag, $"Config file not found: {configPath}");
-            return $"Config file not found: {configPath}";
-        }
-
-        var message = await Task.Run(() => LibClashNative.ValidateConfig(configPath), cancellationToken);
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            Log.Info(Tag, "Validate completed: ok");
-        }
-        else
-        {
-            Log.Error(Tag, $"Validate completed: {message}");
-        }
-
-        return message;
+        Log.Info(Tag, $"Validate config via IPC path={configPath}");
+        var payload = JsonSerializer.Serialize(
+            new ValidateConfigIpcRequest(configPath),
+            AndroidIpcJsonContext.Default.ValidateConfigIpcRequest);
+        return await ipcClient.SendAsync(AndroidIpcCommands.ValidateConfig, payload, cancellationToken);
     }
 
     public async Task StartAsync(ClashProfile profile, CancellationToken cancellationToken = default)
     {
         await StartCoreAsync(profile, hasVpnPermission: false, cancellationToken);
-    }
-
-    private async Task StartCoreAsync(
-        ClashProfile profile,
-        bool hasVpnPermission,
-        CancellationToken cancellationToken = default)
-    {
-        Publish(new ClashStatus(ClashRunState.Starting, "Starting core"));
-        Log.Info(Tag, $"Start requested. tun={profile.EnableTun}, hasVpnPermission={hasVpnPermission}");
-
-        try
-        {
-            if (profile.EnableTun && !hasVpnPermission)
-            {
-                var permissionIntent = VpnService.Prepare(activity);
-                Log.Info(Tag, permissionIntent == null
-                    ? "VPN permission already granted"
-                    : "VPN permission required");
-
-                if (permissionIntent != null)
-                {
-                    pendingStartProfile = profile;
-                    activity.StartActivityForResult(permissionIntent, RequestVpnPermission);
-                    Publish(new ClashStatus(ClashRunState.Starting, "等待 VPN 授权"));
-                    return;
-                }
-            }
-
-            Log.Info(Tag, "Setting up libclash core");
-            var setupMessage = await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                EnsureConfigFile(profile);
-                return SetupCore(profile);
-            }, cancellationToken);
-
-            if (!string.IsNullOrWhiteSpace(setupMessage))
-            {
-                Log.Error(Tag, $"Core setup failed: {setupMessage}");
-                Publish(new ClashStatus(ClashRunState.Error, setupMessage));
-                return;
-            }
-
-            Log.Info(Tag, "Starting libclash listener");
-            await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                LibClashNative.StartListener();
-            }, cancellationToken);
-
-            if (profile.EnableTun)
-            {
-                Log.Info(Tag, "Starting Android VPN service");
-                AurelineVpnService.Start(activity, ClashVpnOptions.FromProfile(profile));
-            }
-
-            Log.Info(Tag, "Core marked running");
-            Publish(new ClashStatus(ClashRunState.Running, "Running", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
-        }
-        catch (System.OperationCanceledException)
-        {
-            Log.Warn(Tag, "Start canceled");
-            Publish(ClashStatus.Stopped);
-        }
-        catch (Exception ex)
-        {
-            Log.Error(Tag, ex.ToString());
-            Publish(new ClashStatus(ClashRunState.Error, ex.Message));
-        }
     }
 
     public void OnVpnPermissionResult(bool granted)
@@ -174,14 +102,16 @@ internal sealed class AndroidClashRuntime : IClashRuntime
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
         Publish(new ClashStatus(ClashRunState.Stopping, "Stopping"));
-
-        TryStopVpn();
-        await Task.Run(() =>
+        try
         {
-            TryStopListener();
-            TryResetCore();
-        }, cancellationToken);
-        Publish(ClashStatus.Stopped);
+            await ipcClient.SendAsync(AndroidIpcCommands.Stop, cancellationToken: cancellationToken);
+            await RefreshStatusAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(Tag, $"Stop failed: {ex}");
+            Publish(new ClashStatus(ClashRunState.Error, ex.Message));
+        }
     }
 
     public async Task<IReadOnlyList<ClashProxyGroup>> GetProxyGroupsAsync(
@@ -190,55 +120,18 @@ internal sealed class AndroidClashRuntime : IClashRuntime
     {
         try
         {
-            return await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var namesJson = LibClashNative.QueryGroupNames(false);
-                var names = JsonSerializer.Deserialize(
-                    namesJson,
-                    LibClashSetupJsonContext.Default.ListString) ?? [];
-                var groups = new List<ClashProxyGroup>(names.Count);
-                var nativeSortMode = ToNativeSortMode(sortMode);
-
-                foreach (var name in names)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var groupJson = LibClashNative.QueryGroup(name, nativeSortMode);
-                    if (string.IsNullOrWhiteSpace(groupJson))
-                    {
-                        continue;
-                    }
-
-                    var group = JsonSerializer.Deserialize(
-                        groupJson,
-                        LibClashSetupJsonContext.Default.NativeProxyGroup);
-                    if (group?.Proxies is not { Count: > 0 } proxies)
-                    {
-                        continue;
-                    }
-
-                    var nodes = proxies
-                        .Where(proxy => !string.IsNullOrWhiteSpace(proxy.Name))
-                        .Select(proxy => new ClashProxy(
-                            proxy.Name ?? string.Empty,
-                            proxy.Type ?? proxy.Subtitle ?? string.Empty,
-                            string.Empty,
-                            proxy.Delay > 0 && proxy.Delay < ushort.MaxValue ? proxy.Delay : null))
-                        .ToArray();
-
-                    groups.Add(new ClashProxyGroup(
-                        name,
-                        group.Type ?? string.Empty,
-                        group.Now ?? string.Empty,
-                        string.Empty,
-                        nodes));
-                }
-
-                return (IReadOnlyList<ClashProxyGroup>)groups;
-            }, cancellationToken);
+            var payload = JsonSerializer.Serialize(
+                new ProxyGroupsIpcRequest(sortMode),
+                AndroidIpcJsonContext.Default.ProxyGroupsIpcRequest);
+            var response = await ipcClient.SendAsync(AndroidIpcCommands.GetProxyGroups, payload, cancellationToken);
+            return JsonSerializer.Deserialize(
+                    response,
+                    AndroidIpcJsonContext.Default.ClashProxyGroupArray) ??
+                [];
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Debug(Tag, $"Failed to query proxy groups: {ex.Message}");
             return [];
         }
     }
@@ -247,16 +140,12 @@ internal sealed class AndroidClashRuntime : IClashRuntime
     {
         try
         {
-            return await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var now = UnpackTraffic(LibClashNative.QueryTrafficNow());
-                var total = UnpackTraffic(LibClashNative.QueryTrafficTotal());
-                return new ClashTraffic(now.Upload, now.Download, total.Upload, total.Download);
-            }, cancellationToken);
+            var response = await ipcClient.SendAsync(AndroidIpcCommands.GetTraffic, cancellationToken: cancellationToken);
+            return JsonSerializer.Deserialize(response, AndroidIpcJsonContext.Default.ClashTraffic);
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Debug(Tag, $"Failed to query traffic: {ex.Message}");
             return null;
         }
     }
@@ -265,14 +154,14 @@ internal sealed class AndroidClashRuntime : IClashRuntime
     {
         try
         {
-            return await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return (int?)LibClashNative.QueryConnectionCount();
-            }, cancellationToken);
+            var response = await ipcClient.SendAsync(AndroidIpcCommands.GetConnectionCount, cancellationToken: cancellationToken);
+            return int.TryParse(response, NumberStyles.Integer, CultureInfo.InvariantCulture, out var count)
+                ? count
+                : null;
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Debug(Tag, $"Failed to query connection count: {ex.Message}");
             return null;
         }
     }
@@ -284,14 +173,15 @@ internal sealed class AndroidClashRuntime : IClashRuntime
     {
         try
         {
-            return await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return LibClashNative.PatchSelector(groupName, proxyName);
-            }, cancellationToken);
+            var payload = JsonSerializer.Serialize(
+                new SelectProxyIpcRequest(groupName, proxyName),
+                AndroidIpcJsonContext.Default.SelectProxyIpcRequest);
+            var response = await ipcClient.SendAsync(AndroidIpcCommands.SelectProxy, payload, cancellationToken);
+            return response == "1";
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Debug(Tag, $"Failed to select proxy: {ex.Message}");
             return false;
         }
     }
@@ -300,14 +190,15 @@ internal sealed class AndroidClashRuntime : IClashRuntime
     {
         try
         {
-            return await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return LibClashNative.SetMode(mode);
-            }, cancellationToken);
+            var payload = JsonSerializer.Serialize(
+                new SetModeIpcRequest(mode),
+                AndroidIpcJsonContext.Default.SetModeIpcRequest);
+            var response = await ipcClient.SendAsync(AndroidIpcCommands.SetMode, payload, cancellationToken);
+            return response == "1";
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Debug(Tag, $"Failed to set mode: {ex.Message}");
             return false;
         }
     }
@@ -320,14 +211,17 @@ internal sealed class AndroidClashRuntime : IClashRuntime
     {
         try
         {
-            return await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return LibClashNative.TestProxyDelay(proxyName, testUrl, timeoutMilliseconds);
-            }, cancellationToken);
+            var payload = JsonSerializer.Serialize(
+                new ProxyDelayIpcRequest(proxyName, testUrl, timeoutMilliseconds),
+                AndroidIpcJsonContext.Default.ProxyDelayIpcRequest);
+            var response = await ipcClient.SendAsync(AndroidIpcCommands.TestProxyDelay, payload, cancellationToken);
+            return int.TryParse(response, NumberStyles.Integer, CultureInfo.InvariantCulture, out var delay)
+                ? delay
+                : null;
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Debug(Tag, $"Failed to test proxy delay: {ex.Message}");
             return null;
         }
     }
@@ -336,21 +230,20 @@ internal sealed class AndroidClashRuntime : IClashRuntime
     {
         try
         {
-            await Task.Run(() =>
+            if (string.IsNullOrWhiteSpace(groupName))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (string.IsNullOrWhiteSpace(groupName))
-                {
-                    LibClashNative.HealthCheckAll();
-                    return;
-                }
+                await ipcClient.SendAsync(AndroidIpcCommands.HealthCheckAll, cancellationToken: cancellationToken);
+                return;
+            }
 
-                LibClashNative.HealthCheck(groupName);
-            }, cancellationToken);
+            var payload = JsonSerializer.Serialize(
+                new HealthCheckIpcRequest(groupName),
+                AndroidIpcJsonContext.Default.HealthCheckIpcRequest);
+            await ipcClient.SendAsync(AndroidIpcCommands.HealthCheck, payload, cancellationToken);
         }
-        catch
+        catch (Exception ex)
         {
-            // Health checks are best-effort UI refresh hints.
+            Log.Debug(Tag, $"Failed to run health check: {ex.Message}");
         }
     }
 
@@ -358,15 +251,11 @@ internal sealed class AndroidClashRuntime : IClashRuntime
     {
         try
         {
-            await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                LibClashNative.CloseAllConnections();
-            }, cancellationToken);
+            await ipcClient.SendAsync(AndroidIpcCommands.CloseAllConnections, cancellationToken: cancellationToken);
         }
-        catch
+        catch (Exception ex)
         {
-            // Closing stale connections is best-effort after switching nodes.
+            Log.Debug(Tag, $"Failed to close connections: {ex.Message}");
         }
     }
 
@@ -412,133 +301,91 @@ internal sealed class AndroidClashRuntime : IClashRuntime
         }, cancellationToken);
     }
 
-    private static string SetupCore(ClashProfile profile)
+    private async Task StartCoreAsync(
+        ClashProfile profile,
+        bool hasVpnPermission,
+        CancellationToken cancellationToken = default)
     {
-        var setupJson = JsonSerializer.Serialize(
-            new LibClashSetupRequest(
-                profile.HomeDirectory,
-                profile.ConfigPath,
-                profile.ExternalController ? ExternalControllerListenAt : string.Empty,
-                profile.MixedPort,
-                "https://www.gstatic.com/generate_204"),
-            LibClashSetupJsonContext.Default.LibClashSetupRequest);
-        var setupMessage = LibClashNative.SetupConfig(setupJson);
-        if (!string.IsNullOrWhiteSpace(setupMessage))
-        {
-            return setupMessage;
-        }
+        Publish(new ClashStatus(ClashRunState.Starting, "Starting core"));
+        Log.Info(Tag, $"Start requested via IPC. tun={profile.EnableTun}, hasVpnPermission={hasVpnPermission}");
 
-        return string.Empty;
+        try
+        {
+            if (profile.EnableTun && !hasVpnPermission)
+            {
+                var permissionIntent = VpnService.Prepare(activity);
+                Log.Info(Tag, permissionIntent == null
+                    ? "VPN permission already granted"
+                    : "VPN permission required");
+
+                if (permissionIntent != null)
+                {
+                    pendingStartProfile = profile;
+                    activity.StartActivityForResult(permissionIntent, RequestVpnPermission);
+                    Publish(new ClashStatus(ClashRunState.Starting, "等待 VPN 授权"));
+                    return;
+                }
+            }
+
+            var payload = SerializeProfile(profile);
+            await ipcClient.SendAsync(AndroidIpcCommands.Start, payload, cancellationToken);
+            await RefreshStatusAsync(cancellationToken);
+        }
+        catch (System.OperationCanceledException)
+        {
+            Log.Warn(Tag, "Start canceled");
+            Publish(ClashStatus.Stopped);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(Tag, ex.ToString());
+            Publish(new ClashStatus(ClashRunState.Error, ex.Message));
+        }
     }
 
-    private void TryStopVpn()
+    private async Task RefreshStatusAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            AurelineVpnService.Stop(activity);
+            var response = await ipcClient.SendAsync(AndroidIpcCommands.GetStatus, cancellationToken: cancellationToken);
+            var nextStatus = JsonSerializer.Deserialize(response, AndroidIpcJsonContext.Default.ClashStatus);
+            if (nextStatus != null)
+            {
+                Publish(nextStatus);
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            // The service may not be running, or native code may still be absent.
+            Log.Debug(Tag, $"Failed to refresh core status: {ex.Message}");
         }
-    }
-
-    private static void TryStopListener()
-    {
-        try
-        {
-            LibClashNative.StopListener();
-        }
-        catch
-        {
-            // Native library may not be present during early app development.
-        }
-    }
-
-    private static void TryResetCore()
-    {
-        try
-        {
-            LibClashNative.Reset();
-        }
-        catch
-        {
-            // Native library may not be present during early app development.
-        }
-    }
-
-    private void EnsureConfigFile(ClashProfile profile)
-    {
-        var targetConfigPath = Path.Combine(profile.HomeDirectory, "config.yaml");
-        if (!string.Equals(profile.ConfigPath, targetConfigPath, StringComparison.Ordinal) && File.Exists(profile.ConfigPath))
-        {
-            File.Copy(profile.ConfigPath, targetConfigPath, true);
-            return;
-        }
-
-        if (File.Exists(targetConfigPath))
-        {
-            return;
-        }
-
-        File.WriteAllText(targetConfigPath, DefaultConfig(profile.MixedPort));
-    }
-
-    private static string DefaultConfig(int mixedPort)
-    {
-        return $$"""
-               mixed-port: {{mixedPort}}
-               allow-lan: false
-               mode: rule
-               log-level: info
-               ipv6: false
-               proxies:
-                 - name: DIRECT-TEST
-                   type: direct
-               proxy-groups:
-                 - name: Proxy
-                   type: select
-                   proxies:
-                     - DIRECT
-                     - DIRECT-TEST
-               rules:
-                 - MATCH,Proxy
-               """;
-    }
-
-    private static string ToNativeSortMode(string sortMode)
-    {
-        return sortMode switch
-        {
-            "按延迟" => "Delay",
-            "按名称" => "Title",
-            _ => "Default"
-        };
-    }
-
-    private static (long Upload, long Download) UnpackTraffic(long packed)
-    {
-        var upload = DecodeTrafficUnit((uint)((ulong)packed >> 32));
-        var download = DecodeTrafficUnit((uint)((ulong)packed & uint.MaxValue));
-        return (upload, download);
-    }
-
-    private static long DecodeTrafficUnit(uint value)
-    {
-        var unit = value >> 30;
-        var amount = value & 0x3fffffff;
-        return unit switch
-        {
-            1 => amount * 1024L / 100L,
-            2 => amount * 1024L * 1024L / 100L,
-            3 => amount * 1024L * 1024L * 1024L / 100L,
-            _ => amount
-        };
     }
 
     private void Publish(ClashStatus status)
     {
         Status = status;
         StatusChanged?.Invoke(this, status);
+    }
+
+    private static string SerializeProfile(ClashProfile profile)
+    {
+        return JsonSerializer.Serialize(
+            AndroidCoreProfile.FromProfile(profile),
+            AndroidIpcJsonContext.Default.AndroidCoreProfile);
+    }
+
+    private bool IsCoreProcessRunning()
+    {
+        try
+        {
+            var manager = activity.GetSystemService(Context.ActivityService) as ActivityManager;
+            var processName = $"{activity.PackageName}:vpn";
+            return manager?.RunningAppProcesses?.Any(process =>
+                    string.Equals(process.ProcessName, processName, StringComparison.Ordinal)) == true;
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(Tag, $"Failed to inspect running app processes: {ex.Message}");
+            return false;
+        }
     }
 }
