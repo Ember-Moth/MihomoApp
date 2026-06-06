@@ -28,10 +28,6 @@ internal static unsafe partial class LibClashNative
         delegate* unmanaged[Cdecl]<IntPtr, int, int> protect,
         delegate* unmanaged[Cdecl]<IntPtr, int, IntPtr, IntPtr, int> querySocketUid);
 
-    [LibraryImport(Library, EntryPoint = "libclash_update_android_uid_packages", StringMarshalling = StringMarshalling.Utf8)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static partial int NativeUpdateAndroidUidPackages(string payloadJson);
-
     [LibraryImport(Library, EntryPoint = "libclash_init", StringMarshalling = StringMarshalling.Utf8)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static partial int NativeInit(
@@ -78,13 +74,9 @@ internal static unsafe partial class LibClashNative
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static partial int NativeSetMode(string mode);
 
-    [LibraryImport(Library, EntryPoint = "libclash_query_group_names")]
+    [LibraryImport(Library, EntryPoint = "libclash_query_groups", StringMarshalling = StringMarshalling.Utf8)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static partial IntPtr NativeQueryGroupNames(int excludeNotSelectable);
-
-    [LibraryImport(Library, EntryPoint = "libclash_query_group", StringMarshalling = StringMarshalling.Utf8)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static partial IntPtr NativeQueryGroup(string name, string sortMode);
+    private static partial IntPtr NativeQueryGroups(string sortMode);
 
     [LibraryImport(Library, EntryPoint = "libclash_patch_selector", StringMarshalling = StringMarshalling.Utf8)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -122,6 +114,14 @@ internal static unsafe partial class LibClashNative
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static partial void NativeForceGc();
 
+    [LibraryImport(Library, EntryPoint = "libclash_set_memory_limit")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static partial long NativeSetMemoryLimit(long bytes);
+
+    [LibraryImport(Library, EntryPoint = "libclash_set_gc_percent")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static partial int NativeSetGcPercent(int percent);
+
     [LibraryImport(Library, EntryPoint = "libclash_free_string")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static partial void NativeFreeString(IntPtr value);
@@ -139,22 +139,6 @@ internal static unsafe partial class LibClashNative
 
         callbackHandle = GCHandle.Alloc(callbacks);
         NativeSetAndroidCallbacks(GCHandle.ToIntPtr(callbackHandle.Value), ProtectThunk, QuerySocketUidThunk);
-    }
-
-    public static bool TryUpdateAndroidUidPackages(string payloadJson)
-    {
-        try
-        {
-            return NativeUpdateAndroidUidPackages(payloadJson) != 0;
-        }
-        catch (EntryPointNotFoundException)
-        {
-            return false;
-        }
-        catch (DllNotFoundException)
-        {
-            return false;
-        }
     }
 
     public static void Init(string homeDir, int androidSdkVersion)
@@ -212,14 +196,20 @@ internal static unsafe partial class LibClashNative
         return NativeSetMode(mode) != 0;
     }
 
-    public static string QueryGroupNames(bool excludeNotSelectable)
+    public static string QueryGroups(string sortMode)
     {
-        return TakeNativeString(NativeQueryGroupNames(excludeNotSelectable ? 1 : 0));
-    }
-
-    public static string QueryGroup(string name, string sortMode)
-    {
-        return TakeNativeString(NativeQueryGroup(name, sortMode));
+        try
+        {
+            return TakeNativeString(NativeQueryGroups(sortMode));
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return string.Empty;
+        }
+        catch (DllNotFoundException)
+        {
+            return string.Empty;
+        }
     }
 
     public static bool PatchSelector(string selector, string name)
@@ -269,6 +259,38 @@ internal static unsafe partial class LibClashNative
         }
         catch (DllNotFoundException)
         {
+        }
+    }
+
+    public static long? SetMemoryLimit(long bytes)
+    {
+        try
+        {
+            return NativeSetMemoryLimit(bytes);
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return null;
+        }
+        catch (DllNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    public static int? SetGcPercent(int percent)
+    {
+        try
+        {
+            return NativeSetGcPercent(percent);
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return null;
+        }
+        catch (DllNotFoundException)
+        {
+            return null;
         }
     }
 

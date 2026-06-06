@@ -18,12 +18,14 @@ public sealed class AurelineCoreService : Service
     private const string Tag = nameof(AurelineCoreService);
 
     private Messenger? requestMessenger;
+    private MemoryPressureMaintenance? memoryMaintenance;
     private ClashStatus status = ClashStatus.Stopped;
 
     public override void OnCreate()
     {
         base.OnCreate();
         Log.Info(Tag, "OnCreate");
+        MemoryPressure.ConfigureNativeRuntime();
         requestMessenger = new Messenger(new CoreRequestHandler(this));
     }
 
@@ -57,6 +59,7 @@ public sealed class AurelineCoreService : Service
 
         requestMessenger?.Dispose();
         requestMessenger = null;
+        StopMemoryMaintenance();
         base.OnDestroy();
     }
 
@@ -155,13 +158,22 @@ public sealed class AurelineCoreService : Service
                 throw new InvalidOperationException(setupMessage);
             }
 
-            LibClashNative.StartListener();
+            if (ShouldStartListener(profile))
+            {
+                LibClashNative.StartListener();
+            }
+            else
+            {
+                TryStopListener();
+            }
 
             if (profile.EnableTun)
             {
                 AurelineVpnService.Start(this, ClashVpnOptions.FromProfile(profile));
             }
 
+            StartMemoryMaintenance();
+            MemoryPressure.Trim();
             Publish(new ClashStatus(ClashRunState.Running, "Running", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
             return string.Empty;
         }
@@ -187,6 +199,8 @@ public sealed class AurelineCoreService : Service
 
         TryStopListener();
         TryResetCore();
+        StopMemoryMaintenance();
+        MemoryPressure.Trim();
         Publish(ClashStatus.Stopped);
         return string.Empty;
     }
@@ -202,46 +216,8 @@ public sealed class AurelineCoreService : Service
             payload,
             AndroidIpcJsonContext.Default.ProxyGroupsIpcRequest);
         var nativeSortMode = ToNativeSortMode(request?.SortMode ?? string.Empty);
-        var namesJson = LibClashNative.QueryGroupNames(false);
-        var names = JsonSerializer.Deserialize(
-            namesJson,
-            LibClashSetupJsonContext.Default.ListString) ?? [];
-        var groups = new List<ClashProxyGroup>(names.Count);
-
-        foreach (var name in names)
-        {
-            var groupJson = LibClashNative.QueryGroup(name, nativeSortMode);
-            if (string.IsNullOrWhiteSpace(groupJson))
-            {
-                continue;
-            }
-
-            var group = JsonSerializer.Deserialize(
-                groupJson,
-                LibClashSetupJsonContext.Default.NativeProxyGroup);
-            if (group?.Proxies is not { Count: > 0 } proxies)
-            {
-                continue;
-            }
-
-            var nodes = proxies
-                .Where(proxy => !string.IsNullOrWhiteSpace(proxy.Name))
-                .Select(proxy => new ClashProxy(
-                    proxy.Name ?? string.Empty,
-                    proxy.Type ?? proxy.Subtitle ?? string.Empty,
-                    string.Empty,
-                    proxy.Delay > 0 && proxy.Delay < ushort.MaxValue ? proxy.Delay : null))
-                .ToArray();
-
-            groups.Add(new ClashProxyGroup(
-                name,
-                group.Type ?? string.Empty,
-                group.Now ?? string.Empty,
-                string.Empty,
-                nodes));
-        }
-
-        return JsonSerializer.Serialize(groups.ToArray(), AndroidIpcJsonContext.Default.ClashProxyGroupArray);
+        var groupsJson = LibClashNative.QueryGroups(nativeSortMode);
+        return string.IsNullOrWhiteSpace(groupsJson) ? "[]" : groupsJson;
     }
 
     private static CoreIpcResponse QueryTraffic()
@@ -317,6 +293,7 @@ public sealed class AurelineCoreService : Service
     private void InitializeCore(ClashProfile profile)
     {
         Log.Info(Tag, $"Initialize home={profile.HomeDirectory}, config={profile.ConfigPath}, sdk={(int)Build.VERSION.SdkInt}");
+        MemoryPressure.ConfigureNativeRuntime();
         Directory.CreateDirectory(profile.HomeDirectory);
         EnsureConfigFile(profile);
         LibClashNative.Init(profile.HomeDirectory, (int)Build.VERSION.SdkInt);
@@ -336,12 +313,17 @@ public sealed class AurelineCoreService : Service
             new LibClashSetupRequest(
                 profile.HomeDirectory,
                 profile.ConfigPath,
-                profile.ExternalController ? ExternalControllerListenAt : string.Empty,
+                ShouldStartListener(profile) && profile.ExternalController ? ExternalControllerListenAt : string.Empty,
                 profile.MixedPort,
                 "https://www.gstatic.com/generate_204"),
             LibClashSetupJsonContext.Default.LibClashSetupRequest);
         var setupMessage = LibClashNative.SetupConfig(setupJson);
         return string.IsNullOrWhiteSpace(setupMessage) ? string.Empty : setupMessage;
+    }
+
+    private static bool ShouldStartListener(ClashProfile profile)
+    {
+        return !profile.EnableTun || profile.SystemProxy;
     }
 
     private static void EnsureConfigFile(ClashProfile profile)
@@ -387,6 +369,18 @@ public sealed class AurelineCoreService : Service
     {
         status = nextStatus;
         Log.Info(Tag, $"Status={nextStatus.State}, message={nextStatus.Message}");
+    }
+
+    private void StartMemoryMaintenance()
+    {
+        memoryMaintenance?.Dispose();
+        memoryMaintenance = new MemoryPressureMaintenance();
+    }
+
+    private void StopMemoryMaintenance()
+    {
+        memoryMaintenance?.Dispose();
+        memoryMaintenance = null;
     }
 
     private static void TryStopListener()

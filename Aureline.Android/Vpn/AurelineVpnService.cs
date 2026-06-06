@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text.Json;
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
@@ -182,10 +181,9 @@ public sealed class AurelineVpnService : VpnService, IAndroidTunCallbacks
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                SyncAndroidUidPackages();
-                cancellationToken.ThrowIfCancellationRequested();
                 Log.Info(Tag, "Starting libclash TUN");
                 LibClashNative.StartTun(fd, options.Stack, TunAddressCsv(options), TunDnsCsv(options));
+                MemoryPressure.Trim();
                 if (!cancellationToken.IsCancellationRequested)
                 {
                     Log.Info(Tag, "libclash TUN is running");
@@ -204,51 +202,6 @@ public sealed class AurelineVpnService : VpnService, IAndroidTunCallbacks
                 StopVpn();
             }
         }, cancellationToken);
-    }
-
-    private void SyncAndroidUidPackages()
-    {
-        var packageManager = PackageManager;
-        if (packageManager == null)
-        {
-            return;
-        }
-
-        try
-        {
-#pragma warning disable CA1422
-#pragma warning disable CS0618
-            var packages = packageManager.GetInstalledPackages(PackageInfoFlags.MetaData);
-#pragma warning restore CS0618
-#pragma warning restore CA1422
-            var mapping = packages
-                .Select(package => new
-                {
-                    Uid = package.ApplicationInfo?.Uid ?? -1,
-                    PackageName = package.PackageName ?? string.Empty,
-                })
-                .Where(package => package.Uid >= 0 &&
-                    !string.IsNullOrWhiteSpace(package.PackageName))
-                .GroupBy(package => package.Uid)
-                .ToDictionary(
-                    group => group.Key,
-                    group => group
-                        .Select(package => package.PackageName)
-                        .Distinct(StringComparer.Ordinal)
-                        .ToArray());
-
-            var payloadJson = JsonSerializer.Serialize(
-                mapping,
-                LibClashSetupJsonContext.Default.DictionaryInt32StringArray);
-            if (!LibClashNative.TryUpdateAndroidUidPackages(payloadJson))
-            {
-                Log.Debug(Tag, "libclash Android UID package mapping API is unavailable");
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Debug(Tag, $"Failed to sync Android UID package mapping: {ex}");
-        }
     }
 
     private void StopVpn()
@@ -279,6 +232,7 @@ public sealed class AurelineVpnService : VpnService, IAndroidTunCallbacks
 
         tunDescriptor?.Close();
         tunDescriptor = null;
+        MemoryPressure.Trim();
     }
 
     private void StopForegroundCompat()
