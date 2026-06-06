@@ -87,7 +87,7 @@ public partial class MainViewModel
     [RelayCommand]
     private void SetStack(string? stack)
     {
-        Stack = StackOptions.Contains(stack) ? stack! : "system";
+        Stack = NormalizeStack(stack);
         LastMessage = $"栈模式: {Stack}";
     }
 
@@ -300,7 +300,7 @@ public partial class MainViewModel
             AllowLan = state.AllowLan;
             DnsHijacking = state.DnsHijacking;
             SystemProxy = state.SystemProxy;
-            Stack = state.Stack;
+            Stack = NormalizeStack(state.Stack);
             RouteAddressCsv = state.RouteAddressCsv;
             OutboundMode = NormalizeOutboundMode(state.OutboundMode);
             LogLevel = NormalizeLogLevel(state.LogLevel);

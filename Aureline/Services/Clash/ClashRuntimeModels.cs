@@ -95,7 +95,7 @@ public sealed record CoreCapabilities(
         SupportsExternalController: true,
         SupportsGeodataMemoryMode: true,
         SupportsRuntimeRestart: true,
-        SupportedStacks: ["system", "gvisor", "mixed"]);
+        SupportedStacks: ["system"]);
 
     public static CoreCapabilities IosPacketTunnel { get; } = new(
         "libclash iOS PacketTunnel",
@@ -120,7 +120,7 @@ public sealed record CoreCapabilities(
         SupportsExternalController: false,
         SupportsGeodataMemoryMode: true,
         SupportsRuntimeRestart: true,
-        SupportedStacks: ["system", "gvisor", "mixed"]);
+        SupportedStacks: ["system"]);
 
     public static CoreCapabilities NativeClash { get; } = AndroidLibClash with
     {

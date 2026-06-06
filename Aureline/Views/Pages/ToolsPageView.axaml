@@ -786,12 +786,6 @@
                                 <MenuItem Header="system"
                                           Command="{Binding SetStackCommand}"
                                           CommandParameter="system" />
-                                <MenuItem Header="gvisor"
-                                          Command="{Binding SetStackCommand}"
-                                          CommandParameter="gvisor" />
-                                <MenuItem Header="mixed"
-                                          Command="{Binding SetStackCommand}"
-                                          CommandParameter="mixed" />
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>

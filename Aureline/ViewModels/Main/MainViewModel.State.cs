@@ -30,7 +30,7 @@ public partial class MainViewModel
                     AllowLan = state.AllowLan;
                     DnsHijacking = state.DnsHijacking;
                     SystemProxy = state.SystemProxy;
-                    Stack = state.Stack;
+                    Stack = NormalizeStack(state.Stack);
                     RouteAddressCsv = state.RouteAddressCsv;
                     OutboundMode = NormalizeOutboundMode(state.OutboundMode);
                     LogLevel = NormalizeLogLevel(state.LogLevel);
@@ -667,6 +667,13 @@ public partial class MainViewModel
         OnPropertyChanged(nameof(StackText));
         QueueStateSave();
         QueueRuntimeRestart("栈模式");
+    }
+
+    private string NormalizeStack(string? stack)
+    {
+        return StackOptions.Contains(stack, StringComparer.OrdinalIgnoreCase)
+            ? stack!
+            : "system";
     }
 
     partial void OnRouteAddressCsvChanged(string value)

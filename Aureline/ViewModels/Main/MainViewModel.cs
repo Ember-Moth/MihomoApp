@@ -79,7 +79,7 @@ public partial class MainViewModel : ViewModelBase
         _ = RefreshNetworkDetectionAsync();
     }
 
-    public IReadOnlyList<string> StackOptions { get; } = ["system", "gvisor", "mixed"];
+    public IReadOnlyList<string> StackOptions { get; } = ["system"];
 
     public ObservableCollection<ProxyGroupItem> ProxyGroups { get; } = [];
 
