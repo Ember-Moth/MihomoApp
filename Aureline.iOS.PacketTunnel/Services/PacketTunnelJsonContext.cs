@@ -6,7 +6,26 @@ namespace Aureline.iOS.PacketTunnel.Services;
 [JsonSerializable(typeof(LibClashSetupRequest))]
 [JsonSerializable(typeof(TunnelIpcRequest))]
 [JsonSerializable(typeof(TunnelIpcResponse))]
+[JsonSerializable(typeof(List<string>))]
+[JsonSerializable(typeof(TunnelProxyGroup))]
+[JsonSerializable(typeof(TunnelProxyGroup[]))]
 internal sealed partial class PacketTunnelJsonContext : JsonSerializerContext;
+
+internal static class TunnelIpcCommands
+{
+    public const string ValidateConfig = "validate-config";
+    public const string GetStatus = "get-status";
+    public const string GetProxyGroups = "get-proxy-groups";
+    public const string GetTraffic = "get-traffic";
+    public const string GetConnectionCount = "get-connection-count";
+    public const string SelectProxy = "select-proxy";
+    public const string SetMode = "set-mode";
+    public const string TestProxyDelay = "test-proxy-delay";
+    public const string HealthCheck = "health-check";
+    public const string HealthCheckAll = "health-check-all";
+    public const string CloseAllConnections = "close-all-connections";
+    public const string ForceGc = "force-gc";
+}
 
 internal sealed class TunnelIpcRequest
 {
@@ -89,4 +108,37 @@ internal sealed class LibClashSetupRequest
 
     [JsonPropertyName("test-url")]
     public string TestUrl { get; }
+}
+
+internal sealed class TunnelProxyGroup
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("now")]
+    public string? Now { get; set; }
+
+    [JsonPropertyName("proxies")]
+    public List<TunnelProxy>? Proxies { get; set; }
+}
+
+internal sealed class TunnelProxy
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("subtitle")]
+    public string? Subtitle { get; set; }
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("delay")]
+    public int Delay { get; set; }
 }

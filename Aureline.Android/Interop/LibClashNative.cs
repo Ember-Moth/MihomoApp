@@ -118,6 +118,10 @@ internal static unsafe partial class LibClashNative
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static partial void NativeUpdateDns(string dnsCsv);
 
+    [LibraryImport(Library, EntryPoint = "libclash_force_gc")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static partial void NativeForceGc();
+
     [LibraryImport(Library, EntryPoint = "libclash_free_string")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static partial void NativeFreeString(IntPtr value);
@@ -252,6 +256,20 @@ internal static unsafe partial class LibClashNative
     public static void UpdateDns(string dnsCsv)
     {
         NativeUpdateDns(dnsCsv);
+    }
+
+    public static void ForceGc()
+    {
+        try
+        {
+            NativeForceGc();
+        }
+        catch (EntryPointNotFoundException)
+        {
+        }
+        catch (DllNotFoundException)
+        {
+        }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]

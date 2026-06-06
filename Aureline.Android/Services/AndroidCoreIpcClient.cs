@@ -2,6 +2,7 @@ using Android.App;
 using Android.Content;
 using Android.OS;
 using Android.Util;
+using System.Text.Json;
 
 namespace Aureline.Android.Services;
 
@@ -12,7 +13,7 @@ internal sealed class AndroidCoreIpcClient : IDisposable
     private readonly Activity activity;
     private readonly object gate = new();
     private readonly Messenger responseMessenger;
-    private readonly Dictionary<long, TaskCompletionSource<string>> pendingRequests = new();
+    private readonly Dictionary<long, TaskCompletionSource<CoreIpcResponse>> pendingRequests = new();
     private long nextRequestId;
     private Messenger? remoteMessenger;
     private CoreServiceConnection? connection;
@@ -30,11 +31,20 @@ internal sealed class AndroidCoreIpcClient : IDisposable
         string payload = "",
         CancellationToken cancellationToken = default)
     {
+        var response = await SendResponseAsync(command, payload, cancellationToken);
+        return response.Payload;
+    }
+
+    public async Task<CoreIpcResponse> SendResponseAsync(
+        string command,
+        string payload = "",
+        CancellationToken cancellationToken = default)
+    {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         var messenger = await EnsureConnectedAsync(cancellationToken);
         var requestId = Interlocked.Increment(ref nextRequestId);
-        var completion = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completion = new TaskCompletionSource<CoreIpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         lock (gate)
         {
@@ -43,7 +53,7 @@ internal sealed class AndroidCoreIpcClient : IDisposable
 
         using var cancellation = cancellationToken.Register(() =>
         {
-            TaskCompletionSource<string>? removed = null;
+            TaskCompletionSource<CoreIpcResponse>? removed = null;
             lock (gate)
             {
                 if (pendingRequests.Remove(requestId, out var pending))
@@ -173,7 +183,7 @@ internal sealed class AndroidCoreIpcClient : IDisposable
 
     private void ClearConnection()
     {
-        List<TaskCompletionSource<string>> pending;
+        List<TaskCompletionSource<CoreIpcResponse>> pending;
         lock (gate)
         {
             remoteMessenger?.Dispose();
@@ -189,7 +199,7 @@ internal sealed class AndroidCoreIpcClient : IDisposable
         }
     }
 
-    private TaskCompletionSource<string>? RemovePendingRequest(long requestId)
+    private TaskCompletionSource<CoreIpcResponse>? RemovePendingRequest(long requestId)
     {
         lock (gate)
         {
@@ -216,23 +226,43 @@ internal sealed class AndroidCoreIpcClient : IDisposable
         }
 
         var requestId = data.GetLong(AndroidIpcWire.ExtraRequestId);
-        var success = data.GetBoolean(AndroidIpcWire.ExtraSuccess);
-        var payload = data.GetString(AndroidIpcWire.ExtraPayload) ?? string.Empty;
-        var error = data.GetString(AndroidIpcWire.ExtraError) ?? string.Empty;
+        var responseJson = data.GetString(AndroidIpcWire.ExtraPayload) ?? string.Empty;
         var pending = RemovePendingRequest(requestId);
         if (pending == null)
         {
             return;
         }
 
-        if (success)
+        CoreIpcResponse? response = null;
+        if (!string.IsNullOrWhiteSpace(responseJson))
         {
-            pending.TrySetResult(payload);
+            try
+            {
+                response = JsonSerializer.Deserialize(
+                    responseJson,
+                    AndroidIpcJsonContext.Default.CoreIpcResponse);
+            }
+            catch (JsonException ex)
+            {
+                pending.TrySetException(new InvalidOperationException("核心服务返回了无效响应", ex));
+                return;
+            }
+        }
+
+        if (response == null)
+        {
+            pending.TrySetException(new InvalidOperationException("核心服务返回了空响应"));
+            return;
+        }
+
+        if (response.Ok)
+        {
+            pending.TrySetResult(response);
             return;
         }
 
         pending.TrySetException(new InvalidOperationException(
-            string.IsNullOrWhiteSpace(error) ? "核心服务命令执行失败" : error));
+            string.IsNullOrWhiteSpace(response.Error) ? "核心服务命令执行失败" : response.Error));
     }
 
     private sealed class CoreServiceConnection(AndroidCoreIpcClient client) : Java.Lang.Object, IServiceConnection

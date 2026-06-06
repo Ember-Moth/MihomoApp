@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json;
 using Android.App;
 using Android.Content;
@@ -84,34 +83,35 @@ public sealed class AurelineCoreService : Service
             try
             {
                 var responsePayload = Execute(command, payload);
-                SendResponse(replyTo, requestId, responsePayload, string.Empty);
+                SendResponse(replyTo, requestId, responsePayload);
             }
             catch (Exception ex)
             {
                 Log.Error(Tag, $"IPC command failed. command={command}, error={ex}");
-                SendResponse(replyTo, requestId, string.Empty, ex.Message);
+                SendResponse(replyTo, requestId, Fail(ex.Message));
             }
         });
     }
 
-    private string Execute(string command, string payload)
+    private CoreIpcResponse Execute(string command, string payload)
     {
         return command switch
         {
-            AndroidIpcCommands.Initialize => Initialize(payload),
-            AndroidIpcCommands.ValidateConfig => ValidateConfig(payload),
-            AndroidIpcCommands.Start => StartCore(payload),
-            AndroidIpcCommands.Stop => StopCore(),
-            AndroidIpcCommands.GetStatus => SerializeStatus(),
-            AndroidIpcCommands.GetProxyGroups => QueryProxyGroups(payload),
+            AndroidIpcCommands.Initialize => Ok(Initialize(payload)),
+            AndroidIpcCommands.ValidateConfig => Ok(ValidateConfig(payload)),
+            AndroidIpcCommands.Start => Ok(StartCore(payload)),
+            AndroidIpcCommands.Stop => Ok(StopCore()),
+            AndroidIpcCommands.GetStatus => Ok(SerializeStatus()),
+            AndroidIpcCommands.GetProxyGroups => Ok(QueryProxyGroups(payload)),
             AndroidIpcCommands.GetTraffic => QueryTraffic(),
-            AndroidIpcCommands.GetConnectionCount => QueryConnectionCount(),
-            AndroidIpcCommands.SelectProxy => SelectProxy(payload),
-            AndroidIpcCommands.SetMode => SetMode(payload),
-            AndroidIpcCommands.TestProxyDelay => TestProxyDelay(payload),
-            AndroidIpcCommands.HealthCheck => HealthCheck(payload),
-            AndroidIpcCommands.HealthCheckAll => HealthCheckAll(),
-            AndroidIpcCommands.CloseAllConnections => CloseAllConnections(),
+            AndroidIpcCommands.GetConnectionCount => Ok(intValue: LibClashNative.QueryConnectionCount()),
+            AndroidIpcCommands.SelectProxy => Ok(boolValue: SelectProxy(payload)),
+            AndroidIpcCommands.SetMode => Ok(boolValue: SetMode(payload)),
+            AndroidIpcCommands.TestProxyDelay => Ok(intValue: TestProxyDelay(payload)),
+            AndroidIpcCommands.HealthCheck => Ok(HealthCheck(payload)),
+            AndroidIpcCommands.HealthCheckAll => Ok(HealthCheckAll()),
+            AndroidIpcCommands.CloseAllConnections => Ok(CloseAllConnections()),
+            AndroidIpcCommands.ForceGc => Ok(ForceGc()),
             _ => throw new InvalidOperationException($"Unknown IPC command: {command}")
         };
     }
@@ -244,49 +244,41 @@ public sealed class AurelineCoreService : Service
         return JsonSerializer.Serialize(groups.ToArray(), AndroidIpcJsonContext.Default.ClashProxyGroupArray);
     }
 
-    private static string QueryTraffic()
+    private static CoreIpcResponse QueryTraffic()
     {
-        var now = UnpackTraffic(LibClashNative.QueryTrafficNow());
-        var total = UnpackTraffic(LibClashNative.QueryTrafficTotal());
-        var traffic = new ClashTraffic(now.Upload, now.Download, total.Upload, total.Download);
-        return JsonSerializer.Serialize(traffic, AndroidIpcJsonContext.Default.ClashTraffic);
+        return Ok(
+            longValue: LibClashNative.QueryTrafficNow(),
+            secondLongValue: LibClashNative.QueryTrafficTotal());
     }
 
-    private static string QueryConnectionCount()
-    {
-        return LibClashNative.QueryConnectionCount().ToString(CultureInfo.InvariantCulture);
-    }
-
-    private static string SelectProxy(string payload)
+    private static bool SelectProxy(string payload)
     {
         var request = JsonSerializer.Deserialize(
             payload,
             AndroidIpcJsonContext.Default.SelectProxyIpcRequest);
-        var ok = request != null && LibClashNative.PatchSelector(request.GroupName, request.ProxyName);
-        return ok ? "1" : "0";
+        return request != null && LibClashNative.PatchSelector(request.GroupName, request.ProxyName);
     }
 
-    private static string SetMode(string payload)
+    private static bool SetMode(string payload)
     {
         var request = JsonSerializer.Deserialize(
             payload,
             AndroidIpcJsonContext.Default.SetModeIpcRequest);
-        var ok = request != null && LibClashNative.SetMode(request.Mode);
-        return ok ? "1" : "0";
+        return request != null && LibClashNative.SetMode(request.Mode);
     }
 
-    private static string TestProxyDelay(string payload)
+    private static int TestProxyDelay(string payload)
     {
         var request = JsonSerializer.Deserialize(
             payload,
             AndroidIpcJsonContext.Default.ProxyDelayIpcRequest);
         if (request == null)
         {
-            return string.Empty;
+            return 0;
         }
 
         var delay = LibClashNative.TestProxyDelay(request.ProxyName, request.TestUrl, request.TimeoutMilliseconds);
-        return delay?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+        return delay ?? 0;
     }
 
     private static string HealthCheck(string payload)
@@ -313,6 +305,12 @@ public sealed class AurelineCoreService : Service
     private static string CloseAllConnections()
     {
         LibClashNative.CloseAllConnections();
+        return string.Empty;
+    }
+
+    private static string ForceGc()
+    {
+        LibClashNative.ForceGc();
         return string.Empty;
     }
 
@@ -425,27 +423,7 @@ public sealed class AurelineCoreService : Service
         };
     }
 
-    private static (long Upload, long Download) UnpackTraffic(long packed)
-    {
-        var upload = DecodeTrafficUnit((uint)((ulong)packed >> 32));
-        var download = DecodeTrafficUnit((uint)((ulong)packed & uint.MaxValue));
-        return (upload, download);
-    }
-
-    private static long DecodeTrafficUnit(uint value)
-    {
-        var unit = value >> 30;
-        var amount = value & 0x3fffffff;
-        return unit switch
-        {
-            1 => amount * 1024L / 100L,
-            2 => amount * 1024L * 1024L / 100L,
-            3 => amount * 1024L * 1024L * 1024L / 100L,
-            _ => amount
-        };
-    }
-
-    private static void SendResponse(Messenger? replyTo, long requestId, string payload, string error)
+    private static void SendResponse(Messenger? replyTo, long requestId, CoreIpcResponse ipcResponse)
     {
         if (replyTo == null)
         {
@@ -455,10 +433,11 @@ public sealed class AurelineCoreService : Service
         var response = Message.Obtain(null, AndroidIpcWire.MessageResponse) ??
             throw new InvalidOperationException("Failed to allocate IPC response message");
         var data = new Bundle();
+        var responsePayload = JsonSerializer.Serialize(
+            ipcResponse,
+            AndroidIpcJsonContext.Default.CoreIpcResponse);
         data.PutLong(AndroidIpcWire.ExtraRequestId, requestId);
-        data.PutBoolean(AndroidIpcWire.ExtraSuccess, string.IsNullOrWhiteSpace(error));
-        data.PutString(AndroidIpcWire.ExtraPayload, payload);
-        data.PutString(AndroidIpcWire.ExtraError, error);
+        data.PutString(AndroidIpcWire.ExtraPayload, responsePayload);
         response.Data = data;
 
         try
@@ -474,6 +453,33 @@ public sealed class AurelineCoreService : Service
             response.Dispose();
             data.Dispose();
         }
+    }
+
+    private static CoreIpcResponse Ok(
+        string payload = "",
+        long longValue = 0,
+        long secondLongValue = 0,
+        int intValue = 0,
+        bool boolValue = false)
+    {
+        return new CoreIpcResponse
+        {
+            Ok = true,
+            Payload = payload,
+            LongValue = longValue,
+            SecondLongValue = secondLongValue,
+            IntValue = intValue,
+            BoolValue = boolValue
+        };
+    }
+
+    private static CoreIpcResponse Fail(string error)
+    {
+        return new CoreIpcResponse
+        {
+            Ok = false,
+            Error = error
+        };
     }
 
     private sealed class CoreRequestHandler(AurelineCoreService service) : Handler(Looper.MainLooper!)

@@ -11,6 +11,7 @@ namespace Aureline.Android.Services;
 [JsonSerializable(typeof(SetModeIpcRequest))]
 [JsonSerializable(typeof(ProxyDelayIpcRequest))]
 [JsonSerializable(typeof(HealthCheckIpcRequest))]
+[JsonSerializable(typeof(CoreIpcResponse))]
 [JsonSerializable(typeof(ClashStatus))]
 [JsonSerializable(typeof(ClashTraffic))]
 [JsonSerializable(typeof(ClashProxyGroup[]))]
@@ -80,6 +81,30 @@ internal sealed record ProxyDelayIpcRequest(string ProxyName, string TestUrl, in
 
 internal sealed record HealthCheckIpcRequest(string GroupName);
 
+internal sealed class CoreIpcResponse
+{
+    [JsonPropertyName("ok")]
+    public bool Ok { get; set; }
+
+    [JsonPropertyName("error")]
+    public string Error { get; set; } = string.Empty;
+
+    [JsonPropertyName("payload")]
+    public string Payload { get; set; } = string.Empty;
+
+    [JsonPropertyName("longValue")]
+    public long LongValue { get; set; }
+
+    [JsonPropertyName("secondLongValue")]
+    public long SecondLongValue { get; set; }
+
+    [JsonPropertyName("intValue")]
+    public int IntValue { get; set; }
+
+    [JsonPropertyName("boolValue")]
+    public bool BoolValue { get; set; }
+}
+
 internal static class AndroidIpcCommands
 {
     public const string Initialize = "initialize";
@@ -96,6 +121,7 @@ internal static class AndroidIpcCommands
     public const string HealthCheck = "health-check";
     public const string HealthCheckAll = "health-check-all";
     public const string CloseAllConnections = "close-all-connections";
+    public const string ForceGc = "force-gc";
 }
 
 internal static class AndroidIpcWire
@@ -106,6 +132,4 @@ internal static class AndroidIpcWire
     public const string ExtraRequestId = "requestId";
     public const string ExtraCommand = "command";
     public const string ExtraPayload = "payload";
-    public const string ExtraSuccess = "success";
-    public const string ExtraError = "error";
 }

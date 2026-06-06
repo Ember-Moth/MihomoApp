@@ -138,7 +138,7 @@ The main app sends one JSON object per request. The current request shape is:
 
 ```json
 {
-  "action": "query-group",
+  "action": "get-proxy-groups",
   "groupName": "Proxy",
   "proxyName": "HK-01",
   "mode": "rule",
@@ -151,17 +151,17 @@ The main app sends one JSON object per request. The current request shape is:
 
 Supported actions:
 
-- `status`
+- `get-status`
 - `validate-config`
-- `query-group-names`
-- `query-group`
-- `traffic`
-- `connection-count`
+- `get-proxy-groups`
+- `get-traffic`
+- `get-connection-count`
 - `select-proxy`
 - `set-mode`
 - `test-proxy-delay`
 - `health-check`
-- `close-connections`
+- `health-check-all`
+- `close-all-connections`
 - `force-gc`
 
 The response is also JSON:
@@ -178,6 +178,6 @@ The response is also JSON:
 }
 ```
 
-`payload` carries native JSON returned by `libclash_query_group_names` and
-`libclash_query_group`. `longValue` and `secondLongValue` carry packed traffic
+`payload` carries compact JSON payloads such as the full proxy group list from
+`get-proxy-groups`. `longValue` and `secondLongValue` carry packed traffic
 snapshots for upload/download rate and totals.

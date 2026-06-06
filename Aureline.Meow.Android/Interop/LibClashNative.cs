@@ -247,6 +247,10 @@ internal static unsafe partial class LibClashNative
         NativeUpdateDns(dnsCsv);
     }
 
+    public static void ForceGc()
+    {
+    }
+
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int HandleProtect(IntPtr context, int fd)
     {

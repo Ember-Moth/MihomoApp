@@ -55,7 +55,7 @@ UI 进程中的 `AndroidClashRuntime` 只负责：
 - 查询策略组、流量、连接数。
 - 切换节点、切换出站模式、测速、健康检查、关闭连接。
 
-Android IPC command 与 iOS PacketTunnel action 应保持语义一致。当前 Android 命令：
+Android IPC command 与 iOS PacketTunnel action 保持语义一致。当前统一命令：
 
 ```text
 initialize
@@ -72,7 +72,26 @@ test-proxy-delay
 health-check
 health-check-all
 close-all-connections
+force-gc
 ```
+
+响应模型统一使用紧凑 JSON 字段。Android 的 Messenger 响应和 iOS 的
+`SendProviderMessage` 响应都遵循同一组字段：
+
+```json
+{
+  "ok": true,
+  "error": "",
+  "payload": "",
+  "longValue": 0,
+  "secondLongValue": 0,
+  "intValue": 0,
+  "boolValue": false
+}
+```
+
+`payload` 用于承载策略组等较大的 JSON；计数、布尔值和打包流量使用对应的
+`intValue`、`boolValue`、`longValue` 字段。
 
 ## iOS
 

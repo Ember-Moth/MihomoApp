@@ -5,9 +5,24 @@ namespace Aureline.iOS.Services;
 [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
 [JsonSerializable(typeof(TunnelIpcRequest))]
 [JsonSerializable(typeof(TunnelIpcResponse))]
-[JsonSerializable(typeof(List<string>))]
-[JsonSerializable(typeof(IosNativeProxyGroup))]
+[JsonSerializable(typeof(IosProxyGroupWire[]))]
 internal sealed partial class IosClashJsonContext : JsonSerializerContext;
+
+internal static class TunnelIpcCommands
+{
+    public const string ValidateConfig = "validate-config";
+    public const string GetStatus = "get-status";
+    public const string GetProxyGroups = "get-proxy-groups";
+    public const string GetTraffic = "get-traffic";
+    public const string GetConnectionCount = "get-connection-count";
+    public const string SelectProxy = "select-proxy";
+    public const string SetMode = "set-mode";
+    public const string TestProxyDelay = "test-proxy-delay";
+    public const string HealthCheck = "health-check";
+    public const string HealthCheckAll = "health-check-all";
+    public const string CloseAllConnections = "close-all-connections";
+    public const string ForceGc = "force-gc";
+}
 
 internal sealed class TunnelIpcRequest
 {
@@ -60,18 +75,6 @@ internal sealed class TunnelIpcResponse
     public bool BoolValue { get; set; }
 }
 
-internal sealed class IosNativeProxyGroup
-{
-    [JsonPropertyName("type")]
-    public string? Type { get; set; }
-
-    [JsonPropertyName("now")]
-    public string? Now { get; set; }
-
-    [JsonPropertyName("proxies")]
-    public List<IosNativeProxy>? Proxies { get; set; }
-}
-
 internal sealed class IosNativeProxy
 {
     [JsonPropertyName("name")]
@@ -88,4 +91,19 @@ internal sealed class IosNativeProxy
 
     [JsonPropertyName("delay")]
     public int Delay { get; set; }
+}
+
+internal sealed class IosProxyGroupWire
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("now")]
+    public string? Now { get; set; }
+
+    [JsonPropertyName("proxies")]
+    public List<IosNativeProxy>? Proxies { get; set; }
 }

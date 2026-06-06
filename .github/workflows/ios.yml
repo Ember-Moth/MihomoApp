@@ -92,11 +92,7 @@ jobs:
             -p:CodesignKey=- \
             -p:CodesignProvision= \
             -p:AurelineDisableIosEntitlements=true \
-            -p:AurelineEnableNativeAot=false \
-            -p:PublishAot=false \
-            -p:PublishReadyToRun=false \
-            -p:RunAOTCompilation=false \
-            -p:MtouchInterpreter=all \
+            -p:AurelineEnableNativeAot=true \
             -p:UseSharedCompilation=false \
             -nr:false
 

@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json;
 using Android.App;
 using Android.Content;
@@ -140,8 +139,15 @@ internal sealed class AndroidClashRuntime : IClashRuntime, IDisposable
     {
         try
         {
-            var response = await ipcClient.SendAsync(AndroidIpcCommands.GetTraffic, cancellationToken: cancellationToken);
-            return JsonSerializer.Deserialize(response, AndroidIpcJsonContext.Default.ClashTraffic);
+            var response = await ipcClient.SendResponseAsync(AndroidIpcCommands.GetTraffic, cancellationToken: cancellationToken);
+            if (!response.Ok)
+            {
+                return null;
+            }
+
+            var now = UnpackTraffic(response.LongValue);
+            var total = UnpackTraffic(response.SecondLongValue);
+            return new ClashTraffic(now.Upload, now.Download, total.Upload, total.Download);
         }
         catch (Exception ex)
         {
@@ -154,10 +160,8 @@ internal sealed class AndroidClashRuntime : IClashRuntime, IDisposable
     {
         try
         {
-            var response = await ipcClient.SendAsync(AndroidIpcCommands.GetConnectionCount, cancellationToken: cancellationToken);
-            return int.TryParse(response, NumberStyles.Integer, CultureInfo.InvariantCulture, out var count)
-                ? count
-                : null;
+            var response = await ipcClient.SendResponseAsync(AndroidIpcCommands.GetConnectionCount, cancellationToken: cancellationToken);
+            return response.Ok ? response.IntValue : null;
         }
         catch (Exception ex)
         {
@@ -176,8 +180,8 @@ internal sealed class AndroidClashRuntime : IClashRuntime, IDisposable
             var payload = JsonSerializer.Serialize(
                 new SelectProxyIpcRequest(groupName, proxyName),
                 AndroidIpcJsonContext.Default.SelectProxyIpcRequest);
-            var response = await ipcClient.SendAsync(AndroidIpcCommands.SelectProxy, payload, cancellationToken);
-            return response == "1";
+            var response = await ipcClient.SendResponseAsync(AndroidIpcCommands.SelectProxy, payload, cancellationToken);
+            return response.Ok && response.BoolValue;
         }
         catch (Exception ex)
         {
@@ -193,8 +197,8 @@ internal sealed class AndroidClashRuntime : IClashRuntime, IDisposable
             var payload = JsonSerializer.Serialize(
                 new SetModeIpcRequest(mode),
                 AndroidIpcJsonContext.Default.SetModeIpcRequest);
-            var response = await ipcClient.SendAsync(AndroidIpcCommands.SetMode, payload, cancellationToken);
-            return response == "1";
+            var response = await ipcClient.SendResponseAsync(AndroidIpcCommands.SetMode, payload, cancellationToken);
+            return response.Ok && response.BoolValue;
         }
         catch (Exception ex)
         {
@@ -214,10 +218,8 @@ internal sealed class AndroidClashRuntime : IClashRuntime, IDisposable
             var payload = JsonSerializer.Serialize(
                 new ProxyDelayIpcRequest(proxyName, testUrl, timeoutMilliseconds),
                 AndroidIpcJsonContext.Default.ProxyDelayIpcRequest);
-            var response = await ipcClient.SendAsync(AndroidIpcCommands.TestProxyDelay, payload, cancellationToken);
-            return int.TryParse(response, NumberStyles.Integer, CultureInfo.InvariantCulture, out var delay)
-                ? delay
-                : null;
+            var response = await ipcClient.SendResponseAsync(AndroidIpcCommands.TestProxyDelay, payload, cancellationToken);
+            return response.Ok && response.IntValue > 0 ? response.IntValue : null;
         }
         catch (Exception ex)
         {
@@ -371,6 +373,26 @@ internal sealed class AndroidClashRuntime : IClashRuntime, IDisposable
         return JsonSerializer.Serialize(
             AndroidCoreProfile.FromProfile(profile),
             AndroidIpcJsonContext.Default.AndroidCoreProfile);
+    }
+
+    private static (long Upload, long Download) UnpackTraffic(long packed)
+    {
+        var upload = DecodeTrafficUnit((uint)((ulong)packed >> 32));
+        var download = DecodeTrafficUnit((uint)((ulong)packed & uint.MaxValue));
+        return (upload, download);
+    }
+
+    private static long DecodeTrafficUnit(uint value)
+    {
+        var unit = value >> 30;
+        var amount = value & 0x3fffffff;
+        return unit switch
+        {
+            1 => amount * 1024L / 100L,
+            2 => amount * 1024L * 1024L / 100L,
+            3 => amount * 1024L * 1024L * 1024L / 100L,
+            _ => amount
+        };
     }
 
     private bool IsCoreProcessRunning()
