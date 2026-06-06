@@ -31,9 +31,10 @@ internal sealed class IosClashRuntime : IClashRuntime
         DefaultConfigPath = Path.Combine(DefaultHomeDirectory, "config.yaml");
         statusObserver = NSNotificationCenter.DefaultCenter.AddObserver(
             VpnStatusDidChangeNotification,
-            new Action<NSNotification>(_ =>
+            new Action<NSNotification>(notification =>
             {
                 _ = RefreshStatusAsync();
+                GC.KeepAlive(notification);
             }));
         _ = RefreshStatusAsync();
     }
